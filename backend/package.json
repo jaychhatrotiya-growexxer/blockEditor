@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "prisma:validate": "set -a && . ../.env && set +a && prisma validate --schema prisma/schema.prisma",
     "prisma:generate": "set -a && . ../.env && set +a && prisma generate --schema prisma/schema.prisma",
-    "migrate": "set -a && . ../.env && set +a && prisma migrate dev --schema prisma/schema.prisma"
+    "prisma:migrate": "set -a && . ../.env && set +a && prisma migrate dev --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
