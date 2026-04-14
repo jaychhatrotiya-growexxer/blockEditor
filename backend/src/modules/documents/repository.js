@@ -37,6 +37,33 @@ async function findDocumentById(id) {
   });
 }
 
+async function findDocumentWithBlocks(id) {
+  return prisma.document.findUnique({
+    where: { id },
+    include: {
+      blocks: {
+        orderBy: {
+          orderIndex: "asc",
+        },
+      },
+    },
+  });
+}
+
+async function deleteBlocksByDocumentId(documentId) {
+  return prisma.block.deleteMany({
+    where: {
+      documentId,
+    },
+  });
+}
+
+async function createBlocks(blocks) {
+  return prisma.block.createMany({
+    data: blocks,
+  });
+}
+
 async function updateDocumentById(id, data) {
   return prisma.document.update({
     where: {
@@ -67,6 +94,9 @@ module.exports = {
   listDocumentsByUser,
   createDocument,
   findDocumentById,
+  findDocumentWithBlocks,
+  deleteBlocksByDocumentId,
+  createBlocks,
   updateDocumentById,
   deleteDocumentById,
 };

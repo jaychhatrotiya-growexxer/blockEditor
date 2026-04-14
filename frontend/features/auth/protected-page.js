@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "./auth-context";
 
-export function ProtectedPage({ children }) {
+export function ProtectedPage({ children, variant = "dashboard" }) {
   const router = useRouter();
   const { isAuthenticated, isBootstrapping, user, logout } = useAuth();
 
@@ -26,6 +26,14 @@ export function ProtectedPage({ children }) {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (variant === "editor") {
+    return (
+      <div className="editor-page">
+        {children}
+      </div>
+    );
   }
 
   return (

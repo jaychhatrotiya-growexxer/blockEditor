@@ -13,7 +13,15 @@ async function request(path, options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      data = { raw: text };
+    }
+  }
 
   if (!response.ok) {
     const message = data?.error?.message || "Request failed.";

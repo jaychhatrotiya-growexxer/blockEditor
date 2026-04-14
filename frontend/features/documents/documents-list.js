@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
 
 function formatTimestamp(value) {
@@ -16,10 +17,12 @@ function formatTimestamp(value) {
 }
 
 export function DocumentsList() {
+  const router = useRouter();
   const { authorizedRequest } = useAuth();
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [errorDetails, setErrorDetails] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [busyId, setBusyId] = useState(null);
@@ -37,6 +40,7 @@ export function DocumentsList() {
     async function loadDocuments() {
       setIsLoading(true);
       setError("");
+      setErrorDetails("");
 
       try {
         const result = await authorizedRequest("/documents");
@@ -47,6 +51,7 @@ export function DocumentsList() {
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError.message || "Unable to load documents.");
+          setErrorDetails(formatValidationDetails(loadError));
         }
       } finally {
         if (!cancelled) {
@@ -65,6 +70,7 @@ export function DocumentsList() {
   async function handleCreate() {
     setBusyId("create");
     setError("");
+    setErrorDetails("");
 
     try {
       const result = await authorizedRequest("/documents", {
@@ -77,6 +83,7 @@ export function DocumentsList() {
       setEditingTitle(result.document.title);
     } catch (createError) {
       setError(createError.message || "Unable to create document.");
+      setErrorDetails(formatValidationDetails(createError));
     } finally {
       setBusyId(null);
     }
@@ -111,6 +118,7 @@ export function DocumentsList() {
 
     setBusyId(document.id);
     setError("");
+    setErrorDetails("");
 
     try {
       const result = await authorizedRequest(`/documents/${document.id}`, {
@@ -126,6 +134,7 @@ export function DocumentsList() {
       stopEditing();
     } catch (updateError) {
       setError(updateError.message || "Unable to rename document.");
+      setErrorDetails(formatValidationDetails(updateError));
     } finally {
       setBusyId(null);
     }
@@ -142,6 +151,7 @@ export function DocumentsList() {
 
     setBusyId(document.id);
     setError("");
+    setErrorDetails("");
 
     try {
       await authorizedRequest(`/documents/${document.id}`, {
@@ -153,9 +163,25 @@ export function DocumentsList() {
       );
     } catch (deleteError) {
       setError(deleteError.message || "Unable to delete document.");
+      setErrorDetails(formatValidationDetails(deleteError));
     } finally {
       setBusyId(null);
     }
+  }
+
+  function formatValidationDetails(error) {
+    const details = error?.payload?.error?.details;
+    if (!details || !details.fieldErrors) {
+      return "";
+    }
+
+    const messages = Object.entries(details.fieldErrors)
+      .flatMap(([field, messages]) =>
+        (messages || []).map((message) => `${field}: ${message}`),
+      )
+      .filter(Boolean);
+
+    return messages.join(", ");
   }
 
   return (
@@ -175,7 +201,12 @@ export function DocumentsList() {
         </button>
       </div>
 
-      {error ? <p className="auth-error">{error}</p> : null}
+      {error ? (
+        <p className="auth-error">
+          {error}
+          {errorDetails ? ` (${errorDetails})` : ""}
+        </p>
+      ) : null}
 
       {isLoading ? (
         <p className="auth-loading">Loading documents...</p>
@@ -218,7 +249,7 @@ export function DocumentsList() {
                     <button
                       type="button"
                       className="documents-title-button"
-                      onClick={() => startEditing(document)}
+                      onClick={() => router.push(`/documents/${document.id}`)}
                     >
                       {document.title}
                     </button>
@@ -226,6 +257,14 @@ export function DocumentsList() {
                   <span>{formatTimestamp(document.updatedAt)}</span>
                 </div>
                 <div className="documents-actions">
+                  <button
+                    className="auth-secondary"
+                    type="button"
+                    onClick={() => router.push(`/documents/${document.id}`)}
+                    disabled={isBusy}
+                  >
+                    Open
+                  </button>
                   <button
                     className="auth-secondary"
                     type="button"

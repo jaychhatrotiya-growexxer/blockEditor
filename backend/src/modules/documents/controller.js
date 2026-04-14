@@ -1,5 +1,11 @@
 const { HTTP_STATUS } = require("../../utils/http-status");
-const { createNewDocument, getDocuments, removeDocument, renameDocument } = require("./service");
+const {
+  createNewDocument,
+  getDocumentById,
+  getDocuments,
+  removeDocument,
+  saveDocument,
+} = require("./service");
 
 async function listDocumentsController(req, res) {
   const documents = await getDocuments(req.auth.userId);
@@ -9,8 +15,22 @@ async function listDocumentsController(req, res) {
   });
 }
 
+async function getDocumentController(req, res) {
+  const document = await getDocumentById(
+    req.auth.userId,
+    req.validated.params.id,
+  );
+
+  res.status(HTTP_STATUS.OK).json({
+    document,
+  });
+}
+
 async function createDocumentController(req, res) {
-  const document = await createNewDocument(req.auth.userId, req.validated.body || {});
+  const document = await createNewDocument(
+    req.auth.userId,
+    req.validated.body || {},
+  );
 
   res.status(HTTP_STATUS.CREATED).json({
     document,
@@ -18,7 +38,11 @@ async function createDocumentController(req, res) {
 }
 
 async function updateDocumentController(req, res) {
-  const document = await renameDocument(req.auth.userId, req.validated.params.id, req.validated.body);
+  const document = await saveDocument(
+    req.auth.userId,
+    req.validated.params.id,
+    req.validated.body,
+  );
 
   res.status(HTTP_STATUS.OK).json({
     document,
@@ -33,6 +57,7 @@ async function deleteDocumentController(req, res) {
 
 module.exports = {
   listDocumentsController,
+  getDocumentController,
   createDocumentController,
   updateDocumentController,
   deleteDocumentController,
