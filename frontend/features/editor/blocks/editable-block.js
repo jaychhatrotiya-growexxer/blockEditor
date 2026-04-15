@@ -6,6 +6,14 @@ export function useEditableBlock(block, onChange) {
   const elementRef = useRef(null);
   const currentTextRef = useRef(block.content?.text || "");
 
+  function emitChange(nextText) {
+    const previousText = block.content?.text || "";
+
+    if (nextText !== previousText) {
+      onChange?.({ text: nextText });
+    }
+  }
+
   useEffect(() => {
     const element = elementRef.current;
     const nextText = block.content?.text || "";
@@ -23,16 +31,13 @@ export function useEditableBlock(block, onChange) {
   }, [block.id, block.content?.text]);
 
   function handleInput(event) {
-    currentTextRef.current = event.currentTarget.textContent || "";
+    const nextText = event.currentTarget.textContent || "";
+    currentTextRef.current = nextText;
+    emitChange(nextText);
   }
 
   function commitChange() {
-    const nextText = currentTextRef.current;
-    const previousText = block.content?.text || "";
-
-    if (nextText !== previousText) {
-      onChange?.({ text: nextText });
-    }
+    emitChange(currentTextRef.current);
   }
 
   return {

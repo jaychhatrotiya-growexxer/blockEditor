@@ -1,6 +1,6 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-async function request(path, options = {}) {
+export async function apiRequest(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
@@ -35,27 +35,27 @@ async function request(path, options = {}) {
 }
 
 export async function registerRequest(values) {
-  return request("/auth/register", {
+  return apiRequest("/auth/register", {
     method: "POST",
     body: JSON.stringify(values),
   });
 }
 
 export async function loginRequest(values) {
-  return request("/auth/login", {
+  return apiRequest("/auth/login", {
     method: "POST",
     body: JSON.stringify(values),
   });
 }
 
 export async function refreshRequest() {
-  return request("/auth/refresh", {
+  return apiRequest("/auth/refresh", {
     method: "POST",
   });
 }
 
 export async function logoutRequest() {
-  return request("/auth/logout", {
+  return apiRequest("/auth/logout", {
     method: "POST",
   });
 }
@@ -68,7 +68,7 @@ export async function withAuthorizedRequest({
   onAuthFailure,
 }) {
   try {
-    return await request(path, {
+    return await apiRequest(path, {
       ...options,
       headers: {
         ...(options?.headers || {}),
@@ -83,7 +83,7 @@ export async function withAuthorizedRequest({
     try {
       const nextAccessToken = await onAuthRefresh();
 
-      return await request(path, {
+      return await apiRequest(path, {
         ...options,
         headers: {
           ...(options?.headers || {}),

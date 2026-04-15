@@ -3,7 +3,14 @@
 import { getCaretOffset } from "./selection";
 import { useEditableBlock } from "./editable-block";
 
-export function CodeBlock({ block, onChange, onSplit, onBackspace, onSlash }) {
+export function CodeBlock({
+  block,
+  readOnly,
+  onChange,
+  onSplit,
+  onBackspace,
+  onSlash,
+}) {
   const { elementRef, handleInput, commitChange } = useEditableBlock(
     block,
     onChange,
@@ -13,13 +20,17 @@ export function CodeBlock({ block, onChange, onSplit, onBackspace, onSlash }) {
     <pre
       ref={elementRef}
       className="block-code block-editable"
-      contentEditable
+      contentEditable={!readOnly}
       suppressContentEditableWarning
       data-block-id={block.id}
-      data-placeholder="Write code here"
-      onInput={handleInput}
-      onBlur={commitChange}
+      data-placeholder={readOnly ? "" : "Write code here"}
+      onInput={readOnly ? undefined : handleInput}
+      onBlur={readOnly ? undefined : commitChange}
       onKeyDown={(event) => {
+        if (readOnly) {
+          return;
+        }
+
         if (onSlash?.(event)) {
           return;
         }

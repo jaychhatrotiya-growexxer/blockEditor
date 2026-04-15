@@ -5,6 +5,7 @@ import { useEditableBlock } from "./editable-block";
 
 export function HeadingBlock({
   block,
+  readOnly,
   onChange,
   onSplit,
   onBackspace,
@@ -20,13 +21,17 @@ export function HeadingBlock({
       <h2
         ref={elementRef}
         className="block-heading block-heading-1 block-editable"
-        contentEditable
+        contentEditable={!readOnly}
         suppressContentEditableWarning
         data-block-id={block.id}
-        data-placeholder="Type '/' for commands"
-        onInput={handleInput}
-        onBlur={commitChange}
+        data-placeholder={readOnly ? "" : "Type '/' for commands"}
+        onInput={readOnly ? undefined : handleInput}
+        onBlur={readOnly ? undefined : commitChange}
         onKeyDown={(event) => {
+          if (readOnly) {
+            return;
+          }
+
           if (onSlash?.(event)) {
             return;
           }
@@ -54,13 +59,17 @@ export function HeadingBlock({
     <h3
       ref={elementRef}
       className="block-heading block-heading-2 block-editable"
-      contentEditable
+      contentEditable={!readOnly}
       suppressContentEditableWarning
       data-block-id={block.id}
-      data-placeholder="Type '/' for commands"
-      onInput={handleInput}
-      onBlur={commitChange}
+      data-placeholder={readOnly ? "" : "Type '/' for commands"}
+      onInput={readOnly ? undefined : handleInput}
+      onBlur={readOnly ? undefined : commitChange}
       onKeyDown={(event) => {
+        if (readOnly) {
+          return;
+        }
+
         if (onSlash?.(event)) {
           return;
         }

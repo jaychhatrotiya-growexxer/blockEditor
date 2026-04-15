@@ -50,6 +50,22 @@ async function findDocumentWithBlocks(id) {
   });
 }
 
+async function findDocumentByShareToken(shareToken) {
+  return prisma.document.findFirst({
+    where: {
+      shareTokenHash: shareToken,
+      isPublic: true,
+    },
+    include: {
+      blocks: {
+        orderBy: {
+          orderIndex: "asc",
+        },
+      },
+    },
+  });
+}
+
 async function deleteBlocksByDocumentId(documentId) {
   return prisma.block.deleteMany({
     where: {
@@ -95,6 +111,7 @@ module.exports = {
   createDocument,
   findDocumentById,
   findDocumentWithBlocks,
+  findDocumentByShareToken,
   deleteBlocksByDocumentId,
   createBlocks,
   updateDocumentById,

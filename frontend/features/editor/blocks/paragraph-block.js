@@ -5,6 +5,7 @@ import { useEditableBlock } from "./editable-block";
 
 export function ParagraphBlock({
   block,
+  readOnly,
   onChange,
   onSplit,
   onBackspace,
@@ -19,13 +20,17 @@ export function ParagraphBlock({
     <p
       ref={elementRef}
       className="block-paragraph block-editable"
-      contentEditable
+      contentEditable={!readOnly}
       suppressContentEditableWarning
       data-block-id={block.id}
-      data-placeholder="Type '/' for commands"
-      onInput={handleInput}
-      onBlur={commitChange}
+      data-placeholder={readOnly ? "" : "Type '/' for commands"}
+      onInput={readOnly ? undefined : handleInput}
+      onBlur={readOnly ? undefined : commitChange}
       onKeyDown={(event) => {
+        if (readOnly) {
+          return;
+        }
+
         if (onSlash?.(event)) {
           return;
         }

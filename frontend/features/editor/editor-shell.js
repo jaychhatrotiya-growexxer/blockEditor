@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
+import { apiRequest } from "@/lib/api";
 import { BlockRenderer } from "./blocks/block-renderer";
 import { SlashMenu, getFilteredCommands, COMMANDS } from "./slash/slash-menu";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@dnd-kit/sortable";
 const DEFAULT_BLOCK_ORDER_GAP = 1024;
 const DELETE_DROPZONE_ID = "editor-delete-dropzone";
+const INITIAL_PLACEHOLDER_BLOCK_ID = "editor-initial-placeholder";
 
 function DeleteDropZone({ visible }) {
   const { isOver, setNodeRef } = useDroppable({
@@ -67,7 +69,7 @@ function BulkSelectionBar({
   visible,
   allSelected,
   selectedCount,
-  onSelectAll,
+  onToggleSelectAll,
   onDelete,
   onCancel,
 }) {
@@ -83,10 +85,9 @@ function BulkSelectionBar({
         <button
           className="editor-bulk-bar-btn"
           type="button"
-          onClick={onSelectAll}
-          disabled={allSelected}
+          onClick={onToggleSelectAll}
         >
-          Select all
+          {allSelected ? "Deselect all" : "Select all"}
         </button>
         <button
           className="editor-bulk-bar-btn editor-bulk-bar-btn--danger"
@@ -107,18 +108,86 @@ function BulkSelectionBar({
   );
 }
 
+function ShareDialog({
+  open,
+  shareUrl,
+  isShared,
+  busy,
+  message,
+  error,
+  onEnable,
+  onCopy,
+  onExpire,
+  onClose,
+}) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="editor-share-popover" role="dialog" aria-label="Share document">
+      <div className="editor-share-popover-header">
+        <div>
+          <div className="editor-share-popover-title">Share link</div>
+          <p className="editor-share-popover-subtitle">
+            Anyone with this link can open the document in read-only mode.
+          </p>
+        </div>
+        <button
+          className="editor-share-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Close share dialog"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="editor-share-popover-body">
+        <input
+          className="editor-share-input"
+          type="text"
+          value={shareUrl}
+          readOnly
+          placeholder="Generate a share link to copy it"
+        />
+
+        <div className="editor-share-actions">
+          <button
+            className="editor-topbar-btn editor-topbar-btn--primary"
+            type="button"
+            onClick={isShared ? onCopy : onEnable}
+            disabled={busy}
+          >
+            {busy ? "Working..." : isShared ? "Copy link" : "Create link"}
+          </button>
+
+          <button
+            className="editor-topbar-btn"
+            type="button"
+            onClick={onExpire}
+            disabled={busy || !isShared}
+          >
+            Expire link
+          </button>
+        </div>
+
+        {message ? <p className="editor-share-feedback">{message}</p> : null}
+        {error ? <p className="editor-share-feedback editor-share-feedback--error">{error}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 function generateId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `block-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createBlankParagraphBlock() {
+function createBlankParagraphBlock(id = generateId()) {
   return {
-    id:
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `block-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id,
     type: "paragraph",
     content: { text: "" },
     orderIndex: 0,
@@ -127,7 +196,7 @@ function createBlankParagraphBlock() {
 
 function normalizeBlocks(blocks) {
   if (!Array.isArray(blocks) || blocks.length === 0) {
-    return [createBlankParagraphBlock()];
+    return [];
   }
 
   return blocks
@@ -150,10 +219,12 @@ function assignOrderIndexes(blocks) {
   }));
 }
 
-export function EditorShell({ documentId }) {
+export function EditorShell({ documentId, shareToken = "" }) {
   const { authorizedRequest, logout } = useAuth();
   const router = useRouter();
-  const [blocks, setBlocks] = useState(() => [createBlankParagraphBlock()]);
+  const [blocks, setBlocks] = useState(() => [
+    createBlankParagraphBlock(INITIAL_PLACEHOLDER_BLOCK_ID),
+  ]);
   const [focusId, setFocusId] = useState(null);
   const [slashState, setSlashState] = useState(null);
   const [slashHighlight, setSlashHighlight] = useState(0);
@@ -165,9 +236,24 @@ export function EditorShell({ documentId }) {
   const [showBlockToolbar, setShowBlockToolbar] = useState(false);
   const [activeDragId, setActiveDragId] = useState(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState([]);
+  const [activeShareToken, setActiveShareToken] = useState("");
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMessage, setShareMessage] = useState("");
+  const [shareError, setShareError] = useState("");
   const blockToolbarRef = useRef(null);
   const blockToolbarBtnRef = useRef(null);
+  const sharePopoverRef = useRef(null);
+  const shareButtonRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const isReadOnly = Boolean(shareToken);
+  const shareUrl = useMemo(() => {
+    if (!documentId || !activeShareToken || typeof window === "undefined") {
+      return "";
+    }
+
+    return `${window.location.origin}/documents/${documentId}?share=${activeShareToken}`;
+  }, [activeShareToken, documentId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -202,6 +288,10 @@ export function EditorShell({ documentId }) {
   }, []);
 
   function handleDragStart(event) {
+    if (isReadOnly) {
+      return;
+    }
+
     setActiveDragId(event.active.id);
   }
 
@@ -210,6 +300,11 @@ export function EditorShell({ documentId }) {
   }
 
   function handleDragEnd(event) {
+    if (isReadOnly) {
+      setActiveDragId(null);
+      return;
+    }
+
     const { active, over } = event;
 
     setActiveDragId(null);
@@ -231,10 +326,11 @@ export function EditorShell({ documentId }) {
   }
 
   function setBlocksAndMarkDirty(updater) {
-    setBlocks((current) => {
-      const nextBlocks = updater(current);
-      return nextBlocks.length ? nextBlocks : [createBlankParagraphBlock()];
-    });
+    if (isReadOnly) {
+      return;
+    }
+
+    setBlocks((current) => updater(current));
   }
 
   function updateBlock(id, updater) {
@@ -269,6 +365,10 @@ export function EditorShell({ documentId }) {
   }
 
   function confirmBlockTypeChange(blockId, nextType) {
+    if (isReadOnly) {
+      return false;
+    }
+
     const block = blocks.find((item) => item.id === blockId);
     if (!willLoseBlockData(block, nextType)) {
       return true;
@@ -320,6 +420,7 @@ export function EditorShell({ documentId }) {
   }
 
   function deleteSelectedBlocks() {
+    if (isReadOnly) return;
     if (selectedBlockIds.length === 0) return;
 
     const selected = new Set(selectedBlockIds);
@@ -331,6 +432,10 @@ export function EditorShell({ documentId }) {
   }
 
   function addBlock(type = "paragraph") {
+    if (isReadOnly) {
+      return;
+    }
+
     const newBlock = {
       id: generateId(),
       type,
@@ -355,6 +460,10 @@ export function EditorShell({ documentId }) {
   }
 
   function insertParagraphAt(index) {
+    if (isReadOnly) {
+      return;
+    }
+
     const newBlock = createBlankParagraphBlock();
 
     setBlocksAndMarkDirty((current) => {
@@ -369,6 +478,10 @@ export function EditorShell({ documentId }) {
   }
 
   function toggleBlockSelection(blockId, checked) {
+    if (isReadOnly) {
+      return;
+    }
+
     setSelectedBlockIds((current) => {
       if (checked) {
         return current.includes(blockId) ? current : [...current, blockId];
@@ -379,7 +492,24 @@ export function EditorShell({ documentId }) {
   }
 
   function selectAllBlocks() {
+    if (isReadOnly) {
+      return;
+    }
+
     setSelectedBlockIds(blocks.map((block) => block.id));
+  }
+
+  function toggleSelectAllBlocks() {
+    if (isReadOnly) {
+      return;
+    }
+
+    if (allBlocksSelected) {
+      clearBlockSelection();
+      return;
+    }
+
+    selectAllBlocks();
   }
 
   function clearBlockSelection() {
@@ -387,6 +517,10 @@ export function EditorShell({ documentId }) {
   }
 
   function splitBlock(blockId, segments) {
+    if (isReadOnly) {
+      return;
+    }
+
     setBlocksAndMarkDirty((current) => {
       const index = current.findIndex((block) => block.id === blockId);
       if (index === -1) return current;
@@ -424,16 +558,28 @@ export function EditorShell({ documentId }) {
   }
 
   function handleBackspace(blockId) {
+    if (isReadOnly) {
+      return;
+    }
+
     setBlocksAndMarkDirty((current) => {
       const index = current.findIndex((block) => block.id === blockId);
-      if (index <= 0) return current;
+      if (index === -1) return current;
 
       const currentBlock = current[index];
-      const previousBlock = current[index - 1];
       if (!isTextBlock(currentBlock)) return current;
 
       const currentText = currentBlock.content?.text || "";
       if (currentText.length > 0) return current;
+
+      if (current.length === 1) {
+        setFocusId(null);
+        return [];
+      }
+
+      if (index <= 0) return current;
+
+      const previousBlock = current[index - 1];
 
       const nextBlocks = [...current];
       nextBlocks.splice(index, 1);
@@ -449,6 +595,10 @@ export function EditorShell({ documentId }) {
   }, [blocks]);
 
   function openSlashMenu(blockId) {
+    if (isReadOnly) {
+      return;
+    }
+
     const element = document.querySelector(`[data-block-id="${blockId}"]`);
     if (!element) return;
 
@@ -471,6 +621,10 @@ export function EditorShell({ documentId }) {
   }
 
   function handleSlashKey(event, blockId) {
+    if (isReadOnly) {
+      return false;
+    }
+
     if (!slashState || slashState.activeId !== blockId) {
       if (event.key === "/" && event.currentTarget.textContent === "") {
         openSlashMenu(blockId);
@@ -545,6 +699,10 @@ export function EditorShell({ documentId }) {
   }
 
   function applySlashSelection(blockId, type) {
+    if (isReadOnly) {
+      return;
+    }
+
     if (!confirmBlockTypeChange(blockId, type)) return;
 
     setBlocksAndMarkDirty((current) =>
@@ -580,8 +738,86 @@ export function EditorShell({ documentId }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showBlockToolbar]);
 
+  useEffect(() => {
+    if (!isShareDialogOpen) return;
+
+    function handleClickOutside(event) {
+      if (
+        sharePopoverRef.current &&
+        !sharePopoverRef.current.contains(event.target) &&
+        shareButtonRef.current &&
+        !shareButtonRef.current.contains(event.target)
+      ) {
+        setIsShareDialogOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isShareDialogOpen]);
+
+  async function handleEnableShareLink() {
+    if (!documentId) {
+      return;
+    }
+
+    setShareBusy(true);
+    setShareError("");
+    setShareMessage("");
+
+    try {
+      const result = await authorizedRequest(`/documents/${documentId}/share`, {
+        method: "POST",
+      });
+      setActiveShareToken(result.share?.shareToken || "");
+      setShareMessage("Share link is ready to copy.");
+    } catch (error) {
+      setShareError(error.message || "Unable to create share link.");
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareUrl) {
+      return handleEnableShareLink();
+    }
+
+    setShareError("");
+    setShareMessage("");
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareMessage("Share link copied.");
+    } catch (error) {
+      setShareError("Unable to copy link automatically.");
+    }
+  }
+
+  async function handleExpireShareLink() {
+    if (!documentId || !activeShareToken) {
+      return;
+    }
+
+    setShareBusy(true);
+    setShareError("");
+    setShareMessage("");
+
+    try {
+      await authorizedRequest(`/documents/${documentId}/share`, {
+        method: "DELETE",
+      });
+      setActiveShareToken("");
+      setShareMessage("Share link expired.");
+    } catch (error) {
+      setShareError(error.message || "Unable to expire share link.");
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
   async function saveDocument() {
-    if (!documentId) return;
+    if (!documentId || isReadOnly) return;
     setSaveState("saving");
 
     try {
@@ -609,13 +845,21 @@ export function EditorShell({ documentId }) {
       setDocError("");
 
       try {
-        const result = await authorizedRequest(`/documents/${documentId}`);
+        const result = shareToken
+          ? await apiRequest(`/documents/shared/${shareToken}`)
+          : await authorizedRequest(`/documents/${documentId}`);
         if (!cancelled) {
+          if (shareToken && result.document?.id && result.document.id !== documentId) {
+            router.replace(
+              `/documents/${result.document.id}?share=${encodeURIComponent(shareToken)}`,
+            );
+          }
           const loadedBlocks = normalizeBlocks(result.document?.blocks || []);
           setBlocks(loadedBlocks);
           setDocumentTitle(result.document?.title || "Untitled document");
+          setActiveShareToken(result.document?.shareToken || "");
           setDocumentLoaded(true);
-          setSaveState("saved");
+          setSaveState(shareToken ? "shared" : "saved");
         }
       } catch (error) {
         if (!cancelled) setDocError(error.message || "Unable to load document.");
@@ -626,16 +870,16 @@ export function EditorShell({ documentId }) {
 
     loadDocument();
     return () => { cancelled = true; };
-  }, [authorizedRequest, documentId]);
+  }, [authorizedRequest, documentId, router, shareToken]);
 
   useEffect(() => {
-    if (!documentLoaded || isLoadingDoc) return;
+    if (isReadOnly || !documentLoaded || isLoadingDoc) return;
 
     setSaveState("dirty");
     window.clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = window.setTimeout(() => { saveDocument(); }, 800);
     return () => { window.clearTimeout(saveTimeoutRef.current); };
-  }, [blocks, documentTitle, documentLoaded, isLoadingDoc]);
+  }, [blocks, documentTitle, documentLoaded, isLoadingDoc, isReadOnly]);
 
   useEffect(() => {
     setSelectedBlockIds((current) =>
@@ -644,6 +888,20 @@ export function EditorShell({ documentId }) {
   }, [blocks]);
 
   useEffect(() => {
+    if (!isReadOnly) {
+      return;
+    }
+
+    setShowBlockToolbar(false);
+    setSelectedBlockIds([]);
+    closeSlashMenu();
+  }, [isReadOnly]);
+
+  useEffect(() => {
+    if (isReadOnly) {
+      return;
+    }
+
     if (!focusId) return;
     const element = document.querySelector(`[data-block-id="${focusId}"]`);
     if (element) {
@@ -656,22 +914,35 @@ export function EditorShell({ documentId }) {
       selection?.addRange(range);
     }
     setFocusId(null);
-  }, [focusId, blocks]);
+  }, [focusId, blocks, isReadOnly]);
 
   const saveLabel =
-    saveState === "saving" ? "Saving…"
+    isReadOnly ? "Read only"
+      : saveState === "saving" ? "Saving…"
       : saveState === "saved" ? "Saved"
         : saveState === "error" ? "Save failed"
           : "Unsaved";
 
   const saveClass =
-    saveState === "saved" ? "save-pill save-pill--saved"
+    isReadOnly ? "save-pill save-pill--readonly"
+      : saveState === "saved" ? "save-pill save-pill--saved"
       : saveState === "error" ? "save-pill save-pill--error"
         : saveState === "saving" ? "save-pill save-pill--saving"
           : "save-pill";
   const selectedCount = selectedBlockIds.length;
-  const isSelectionMode = selectedCount > 0;
+  const isSelectionMode = !isReadOnly && selectedCount > 0;
   const allBlocksSelected = blocks.length > 0 && selectedCount === blocks.length;
+  const isEmptyDocument = blocks.length === 0;
+  const backTitle = isReadOnly ? "Back" : "Back to documents";
+
+  function handleBackNavigation() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push(isReadOnly ? "/login" : "/dashboard");
+  }
 
   return (
     <div className="editor-layout">
@@ -681,8 +952,8 @@ export function EditorShell({ documentId }) {
           <button
             className="editor-back-btn"
             type="button"
-            title="Back to documents"
-            onClick={() => router.push("/dashboard")}
+            title={backTitle}
+            onClick={handleBackNavigation}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
               <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -694,67 +965,108 @@ export function EditorShell({ documentId }) {
               value={isLoadingDoc ? "Loading…" : documentTitle}
               onChange={(event) => setDocumentTitle(event.target.value)}
               placeholder="Untitled document"
+              readOnly={isReadOnly}
             />
+            {isReadOnly ? (
+              <p className="editor-topbar-meta">Shared view. Editing is disabled.</p>
+            ) : null}
           </div>
         </div>
 
         <div className="editor-topbar-right">
           <span className={saveClass}>{saveLabel}</span>
 
-          {/* ── Floating Block Toolbar ── */}
-          <div className="editor-block-toolbar-wrapper">
-            <button
-              ref={blockToolbarBtnRef}
-              className="editor-topbar-btn"
-              type="button"
-              onClick={() => setShowBlockToolbar((v) => !v)}
-              title="Add block"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              Add block
-            </button>
+          {!isReadOnly ? (
+            <>
+              <div className="editor-block-toolbar-wrapper">
+                <button
+                  ref={blockToolbarBtnRef}
+                  className="editor-topbar-btn"
+                  type="button"
+                  onClick={() => setShowBlockToolbar((v) => !v)}
+                  title="Add block"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                  Add block
+                </button>
 
-            {showBlockToolbar && (
-              <div className="editor-block-toolbar" ref={blockToolbarRef}>
-                <div className="editor-block-toolbar-header">Insert a block</div>
-                {COMMANDS.map((cmd) => (
-                  <button
-                    key={cmd.type}
-                    className="editor-block-toolbar-item"
-                    type="button"
-                    onClick={() => addBlock(cmd.type)}
-                  >
-                    <span className="editor-block-toolbar-icon">{cmd.icon}</span>
-                    <span className="editor-block-toolbar-text">
-                      <span className="editor-block-toolbar-label">{cmd.label}</span>
-                      <span className="editor-block-toolbar-desc">{cmd.desc}</span>
-                    </span>
-                  </button>
-                ))}
+                {showBlockToolbar && (
+                  <div className="editor-block-toolbar" ref={blockToolbarRef}>
+                    <div className="editor-block-toolbar-header">Insert a block</div>
+                    {COMMANDS.map((cmd) => (
+                      <button
+                        key={cmd.type}
+                        className="editor-block-toolbar-item"
+                        type="button"
+                        onClick={() => addBlock(cmd.type)}
+                      >
+                        <span className="editor-block-toolbar-icon">{cmd.icon}</span>
+                        <span className="editor-block-toolbar-text">
+                          <span className="editor-block-toolbar-label">{cmd.label}</span>
+                          <span className="editor-block-toolbar-desc">{cmd.desc}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          <button
-            className="editor-topbar-btn editor-topbar-btn--primary"
-            type="button"
-            disabled={saveState === "saving"}
-            onClick={saveDocument}
-          >
-            Save
-          </button>
-          <button
-            className="editor-topbar-btn editor-topbar-btn--ghost"
-            type="button"
-            onClick={logout}
-            title="Sign out"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 14H3.33C2.97 14 2.62 13.86 2.37 13.61C2.12 13.36 2 13.01 2 12.65V3.35C2 2.99 2.12 2.64 2.37 2.39C2.62 2.14 2.97 2 3.33 2H6M11 11.33L14 8L11 4.67M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+              <div className="editor-share-wrapper">
+                <button
+                  ref={shareButtonRef}
+                  className="editor-topbar-btn"
+                  type="button"
+                  onClick={() => {
+                    setIsShareDialogOpen((current) => !current);
+                    setShareMessage("");
+                    setShareError("");
+                  }}
+                  title="Share document"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M11 5.33C12.1 5.33 13 4.43 13 3.33C13 2.23 12.1 1.33 11 1.33C9.9 1.33 9 2.23 9 3.33C9 4.43 9.9 5.33 11 5.33ZM5 10.67C6.1 10.67 7 9.77 7 8.67C7 7.57 6.1 6.67 5 6.67C3.9 6.67 3 7.57 3 8.67C3 9.77 3.9 10.67 5 10.67ZM11 16C12.1 16 13 15.1 13 14C13 12.9 12.1 12 11 12C9.9 12 9 12.9 9 14C9 15.1 9.9 16 11 16ZM6.73 9.67L9.28 13M9.27 3.99L6.73 7.34" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Share
+                </button>
+
+                <div ref={sharePopoverRef}>
+                  <ShareDialog
+                    open={isShareDialogOpen}
+                    shareUrl={shareUrl}
+                    isShared={Boolean(activeShareToken)}
+                    busy={shareBusy}
+                    message={shareMessage}
+                    error={shareError}
+                    onEnable={handleEnableShareLink}
+                    onCopy={handleCopyShareLink}
+                    onExpire={handleExpireShareLink}
+                    onClose={() => setIsShareDialogOpen(false)}
+                  />
+                </div>
+              </div>
+
+              <button
+                className="editor-topbar-btn editor-topbar-btn--primary"
+                type="button"
+                disabled={saveState === "saving"}
+                onClick={saveDocument}
+              >
+                Save
+              </button>
+              <button
+                className="editor-topbar-btn editor-topbar-btn--ghost"
+                type="button"
+                onClick={logout}
+                title="Sign out"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 14H3.33C2.97 14 2.62 13.86 2.37 13.61C2.12 13.36 2 13.01 2 12.65V3.35C2 2.99 2.12 2.64 2.37 2.39C2.62 2.14 2.97 2 3.33 2H6M11 11.33L14 8L11 4.67M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
 
@@ -776,11 +1088,14 @@ export function EditorShell({ documentId }) {
               strategy={verticalListSortingStrategy}
             >
               <div className="editor-blocks">
-                <InsertBlockControl onInsert={() => insertParagraphAt(0)} />
+                {!isReadOnly && !isEmptyDocument ? (
+                  <InsertBlockControl onInsert={() => insertParagraphAt(0)} />
+                ) : null}
                 {blocks.map((block, index) => (
                   <div className="editor-block-stack" key={block.id}>
                     <BlockRenderer
                       block={block}
+                      readOnly={isReadOnly}
                       isSelected={selectedBlockIds.includes(block.id)}
                       showSelectionControls={isSelectionMode}
                       onSelectChange={toggleBlockSelection}
@@ -800,62 +1115,80 @@ export function EditorShell({ documentId }) {
                       onChangeType={changeBlockType}
                       onDelete={deleteBlock}
                     />
-                    <InsertBlockControl onInsert={() => insertParagraphAt(index + 1)} />
+                    {!isReadOnly ? (
+                      <InsertBlockControl onInsert={() => insertParagraphAt(index + 1)} />
+                    ) : null}
                   </div>
                 ))}
+                {!isReadOnly && isEmptyDocument ? (
+                  <div className="editor-empty-state">
+                    <button
+                      className="editor-empty-state-btn"
+                      type="button"
+                      onClick={() => addBlock()}
+                    >
+                      <span className="editor-empty-state-btn-icon">+</span>
+                      <span>Add block</span>
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </SortableContext>
-            <DeleteDropZone visible={Boolean(activeDragId)} />
+            {!isReadOnly ? <DeleteDropZone visible={Boolean(activeDragId)} /> : null}
           </DndContext>
 
-          {/* Click to add block area */}
-          <div
-            className="editor-click-to-add"
-            onClick={() => addBlock()}
-            role="button"
-            tabIndex={0}
-          />
+          {!isReadOnly && !isEmptyDocument ? (
+            <div
+              className="editor-click-to-add"
+              onClick={() => addBlock()}
+              role="button"
+              tabIndex={0}
+            />
+          ) : null}
         </div>
       </main>
 
-      <SlashMenu
-        activeId={slashState?.activeId}
-        query={slashState?.query || ""}
-        position={slashState?.position || { top: 0, left: 0 }}
-        highlightedIndex={slashHighlight}
-        onSelect={(type) => {
-          if (slashState?.activeId) {
-            applySlashSelection(slashState.activeId, type);
-          }
-        }}
-      />
+      {!isReadOnly ? (
+        <>
+          <SlashMenu
+            activeId={slashState?.activeId}
+            query={slashState?.query || ""}
+            position={slashState?.position || { top: 0, left: 0 }}
+            highlightedIndex={slashHighlight}
+            onSelect={(type) => {
+              if (slashState?.activeId) {
+                applySlashSelection(slashState.activeId, type);
+              }
+            }}
+          />
 
-      <BulkSelectionBar
-        visible={isSelectionMode && !activeDragId}
-        allSelected={allBlocksSelected}
-        selectedCount={selectedCount}
-        onSelectAll={selectAllBlocks}
-        onDelete={deleteSelectedBlocks}
-        onCancel={clearBlockSelection}
-      />
+          <BulkSelectionBar
+            visible={isSelectionMode && !activeDragId}
+            allSelected={allBlocksSelected}
+            selectedCount={selectedCount}
+            onToggleSelectAll={toggleSelectAllBlocks}
+            onDelete={deleteSelectedBlocks}
+            onCancel={clearBlockSelection}
+          />
 
-      {/* ── Floating Action Bar ── */}
-      <div className="editor-floating-bar-wrapper">
-        <div className="editor-floating-bar">
-          {COMMANDS.map((cmd) => (
-            <button
-              key={cmd.type}
-              className="editor-floating-bar-btn"
-              type="button"
-              onClick={() => addBlock(cmd.type)}
-              title={cmd.desc}
-            >
-              <span className="editor-floating-bar-icon">{cmd.icon}</span>
-              <span>{cmd.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+          <div className="editor-floating-bar-wrapper">
+            <div className="editor-floating-bar">
+              {COMMANDS.map((cmd) => (
+                <button
+                  key={cmd.type}
+                  className="editor-floating-bar-btn"
+                  type="button"
+                  onClick={() => addBlock(cmd.type)}
+                  title={cmd.desc}
+                >
+                  <span className="editor-floating-bar-icon">{cmd.icon}</span>
+                  <span>{cmd.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function ImageBlock({ block, onChange }) {
+export function ImageBlock({ block, readOnly, onChange }) {
   const url = block.content?.url || "";
   const [draftUrl, setDraftUrl] = useState(url);
   const [imageError, setImageError] = useState(false);
@@ -12,6 +12,13 @@ export function ImageBlock({ block, onChange }) {
   const imageRef = useRef(null);
 
   useEffect(() => {
+    if (readOnly) {
+      setIsEditing(false);
+      setImageError(false);
+      setImageLoading(false);
+      return;
+    }
+
     setDraftUrl(url);
     if (!url) {
       setImageLoading(false);
@@ -24,13 +31,13 @@ export function ImageBlock({ block, onChange }) {
       setImageLoading(true);
       setImageError(false);
     }
-  }, [url, isEditing]);
+  }, [readOnly, url, isEditing]);
 
   useEffect(() => {
-    if (!isEditing || !inputRef.current) return;
+    if (readOnly || !isEditing || !inputRef.current) return;
     inputRef.current.focus();
     inputRef.current.select();
-  }, [isEditing]);
+  }, [isEditing, readOnly]);
 
   useEffect(() => {
     if (!url || isEditing || !imageRef.current?.complete) return;
@@ -47,6 +54,10 @@ export function ImageBlock({ block, onChange }) {
   }, [url, isEditing]);
 
   function openEditor() {
+    if (readOnly) {
+      return;
+    }
+
     setDraftUrl(url);
     setImageError(false);
     setIsEditing(true);
@@ -97,7 +108,30 @@ export function ImageBlock({ block, onChange }) {
       onBlur={handleWrapperBlur}
       style={{ outline: "none" }}
     >
-      {isEditing ? (
+      {readOnly ? (
+        url ? (
+          <div className="block-image-static">
+            <img
+              ref={imageRef}
+              className="block-image"
+              src={url}
+              alt=""
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+            {imageLoading ? (
+              <div className="block-image-loading">Loading...</div>
+            ) : null}
+            {imageError ? (
+              <div className="block-image-error">Image could not be loaded.</div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="block-image-placeholder">
+            No image was added to this block.
+          </div>
+        )
+      ) : isEditing ? (
         <div className="block-image-editor">
           <input
             ref={inputRef}

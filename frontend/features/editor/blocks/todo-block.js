@@ -5,6 +5,7 @@ import { useEditableBlock } from "./editable-block";
 
 export function TodoBlock({
   block,
+  readOnly,
   onChange,
   onToggle,
   onSplit,
@@ -22,18 +23,23 @@ export function TodoBlock({
       <input
         type="checkbox"
         checked={checked}
+        disabled={readOnly}
         onChange={(event) => onToggle?.(event.target.checked)}
       />
       <span
         ref={elementRef}
         className="block-editable"
-        contentEditable
+        contentEditable={!readOnly}
         suppressContentEditableWarning
         data-block-id={block.id}
-        data-placeholder="New to-do"
-        onInput={handleInput}
-        onBlur={commitChange}
+        data-placeholder={readOnly ? "" : "New to-do"}
+        onInput={readOnly ? undefined : handleInput}
+        onBlur={readOnly ? undefined : commitChange}
         onKeyDown={(event) => {
+          if (readOnly) {
+            return;
+          }
+
           if (onSlash?.(event)) {
             return;
           }

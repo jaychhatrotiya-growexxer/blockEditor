@@ -46,6 +46,28 @@ const getDocumentSchema = z.object({
   }),
 });
 
+const createShareLinkSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+});
+
+const expireShareLinkSchema = z.object({
+  params: z.object({
+    id: z.string().uuid(),
+  }),
+});
+
+const getSharedDocumentSchema = z.object({
+  params: z.object({
+    token: z
+      .string()
+      .min(16, "Share token is invalid.")
+      .max(255, "Share token is invalid.")
+      .regex(/^[A-Za-z0-9_-]+$/, "Share token is invalid."),
+  }),
+});
+
 const deleteDocumentSchema = z.object({
   params: z.object({
     id: z.string().uuid(),
@@ -56,5 +78,8 @@ module.exports = {
   createDocumentSchema,
   updateDocumentSchema,
   getDocumentSchema,
+  createShareLinkSchema,
+  expireShareLinkSchema,
+  getSharedDocumentSchema,
   deleteDocumentSchema,
 };

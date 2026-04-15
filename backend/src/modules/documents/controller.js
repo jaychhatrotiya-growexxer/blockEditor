@@ -1,7 +1,10 @@
 const { HTTP_STATUS } = require("../../utils/http-status");
 const {
+  createShareLink,
   createNewDocument,
+  expireShareLink,
   getDocumentById,
+  getDocumentByShareToken,
   getDocuments,
   removeDocument,
   saveDocument,
@@ -20,6 +23,14 @@ async function getDocumentController(req, res) {
     req.auth.userId,
     req.validated.params.id,
   );
+
+  res.status(HTTP_STATUS.OK).json({
+    document,
+  });
+}
+
+async function getSharedDocumentController(req, res) {
+  const document = await getDocumentByShareToken(req.validated.params.token);
 
   res.status(HTTP_STATUS.OK).json({
     document,
@@ -49,6 +60,22 @@ async function updateDocumentController(req, res) {
   });
 }
 
+async function createShareLinkController(req, res) {
+  const share = await createShareLink(req.auth.userId, req.validated.params.id);
+
+  res.status(HTTP_STATUS.OK).json({
+    share,
+  });
+}
+
+async function expireShareLinkController(req, res) {
+  const share = await expireShareLink(req.auth.userId, req.validated.params.id);
+
+  res.status(HTTP_STATUS.OK).json({
+    share,
+  });
+}
+
 async function deleteDocumentController(req, res) {
   const result = await removeDocument(req.auth.userId, req.validated.params.id);
 
@@ -58,7 +85,10 @@ async function deleteDocumentController(req, res) {
 module.exports = {
   listDocumentsController,
   getDocumentController,
+  getSharedDocumentController,
   createDocumentController,
   updateDocumentController,
+  createShareLinkController,
+  expireShareLinkController,
   deleteDocumentController,
 };
