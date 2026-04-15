@@ -11,7 +11,7 @@ function getRefreshCookieOptions(refreshToken) {
   return {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/api/v1/auth",
     maxAge,
   };
