@@ -1,101 +1,148 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function ImageBlock({ block, onChange }) {
   const url = block.content?.url || "";
-  const alt = block.content?.alt || "";
+  const [draftUrl, setDraftUrl] = useState(url);
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(!url);
+  const inputRef = useRef(null);
+  const imageRef = useRef(null);
 
   useEffect(() => {
-    if (url) {
-      setImageLoading(true);
-      setImageError(false);
-    } else {
+    setDraftUrl(url);
+    if (!url) {
       setImageLoading(false);
       setImageError(false);
       setIsEditing(true);
+      return;
     }
-  }, [url]);
 
-  const handleUrlChange = (newUrl) => {
-    onChange?.({ url: newUrl });
-  };
+    if (!isEditing) {
+      setImageLoading(true);
+      setImageError(false);
+    }
+  }, [url, isEditing]);
 
-  const handleAltChange = (newAlt) => {
-    onChange?.({ alt: newAlt });
-  };
+  useEffect(() => {
+    if (!isEditing || !inputRef.current) return;
+    inputRef.current.focus();
+    inputRef.current.select();
+  }, [isEditing]);
 
-  const handleImageLoad = () => {
-    setImageLoading(false);
-    setImageError(false);
-    setIsEditing(false); // Hide the inputs once successfully loaded
-  };
+  useEffect(() => {
+    if (!url || isEditing || !imageRef.current?.complete) return;
 
-  const handleImageError = () => {
+    if (imageRef.current.naturalWidth > 0) {
+      setImageLoading(false);
+      setImageError(false);
+      return;
+    }
+
     setImageLoading(false);
     setImageError(true);
-    setIsEditing(true); // Keep inputs open if there's an error
-  };
+    setIsEditing(true);
+  }, [url, isEditing]);
 
-  const handleWrapperBlur = (e) => {
-    // Hide inputs if clicking outside the block and we have a valid image loaded
-    if (!e.currentTarget.contains(e.relatedTarget) && url && !imageError && !imageLoading) {
-      setIsEditing(false);
+  function openEditor() {
+    setDraftUrl(url);
+    setImageError(false);
+    setIsEditing(true);
+  }
+
+  function finishEditing() {
+    const nextUrl = draftUrl.trim();
+
+    if (nextUrl === url) {
+      setDraftUrl(url);
+      setImageError(false);
+      setIsEditing(!url);
+      return;
     }
-  };
+
+    onChange?.({ url: nextUrl });
+    setImageError(false);
+    setImageLoading(Boolean(nextUrl));
+    setIsEditing(false);
+  }
+
+  function cancelEditing() {
+    setDraftUrl(url);
+    setImageError(false);
+    setIsEditing(!url);
+  }
+
+  function handleWrapperBlur(event) {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    finishEditing();
+  }
+
+  function handleImageLoad() {
+    setImageLoading(false);
+    setImageError(false);
+  }
+
+  function handleImageError() {
+    setImageLoading(false);
+    setImageError(true);
+    setIsEditing(true);
+  }
 
   return (
-    <div 
-      className="block-image-wrapper" 
-      tabIndex={-1} 
-      onBlur={handleWrapperBlur} 
+    <div
+      className="block-image-wrapper"
+      tabIndex={-1}
+      onBlur={handleWrapperBlur}
       style={{ outline: "none" }}
     >
-      {isEditing && (
-        <>
+      {isEditing ? (
+        <div className="block-image-editor">
           <input
+            ref={inputRef}
             className="block-image-input"
             type="url"
             placeholder="Paste image URL"
-            value={url}
-            onChange={(event) => handleUrlChange(event.target.value)}
-            autoFocus={!url}
+            value={draftUrl}
+            onChange={(event) => setDraftUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                finishEditing();
+              }
+
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancelEditing();
+              }
+            }}
           />
-          <input
-            className="block-image-input"
-            type="text"
-            placeholder="Image alt text (optional)"
-            value={alt}
-            onChange={(event) => handleAltChange(event.target.value)}
-          />
-        </>
-      )}
-      {url ? (
-        <div 
+          {imageError ? (
+            <div className="block-image-error-inline">
+              Failed to load image. Check the URL.
+            </div>
+          ) : null}
+        </div>
+      ) : url ? (
+        <button
           className="block-image-container"
-          onClick={() => setIsEditing(true)}
-          title="Click to edit image details"
-          style={{ cursor: isEditing ? "default" : "pointer" }}
+          onClick={openEditor}
+          title="Click to edit image URL"
+          type="button"
         >
           <img
+            ref={imageRef}
             className="block-image"
             src={url}
-            alt={alt || "Image"}
+            alt=""
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
-          {imageLoading && (
+          {imageLoading ? (
             <div className="block-image-loading">Loading...</div>
-          )}
-          {imageError && (
-            <div className="block-image-error">
-              Failed to load image. Check the URL.
-            </div>
-          )}
-        </div>
+          ) : null}
+        </button>
       ) : (
         <div className="block-image-placeholder">
           Enter an image URL above to display the image

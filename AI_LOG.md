@@ -41,4 +41,12 @@ Redesign the block editor interface to look significantly more professional and 
 - Completely refactored `EditorShell` (`editor-shell.js`) with a modern minimalist interface, adding a sticky Notion-style header block, a clear white document canvas (capped at 720px), internal back navigation, and inline document title editing that auto-saves alongside blocks.
 - Rewrote `block-menu` to utilize the modern UX pattern of hovering left-side grips (six-dots), showing a dropdown layout handling conversion commands with active styling markers.
 - Restyled the `slash-menu` into a sophisticated 3-column structured menu containing visual icons, a main label, and detailed text descriptions for blocks rather than simple emoji.
-- Completed an extensive CSS overhaul in `globals.css`, introducing variables for interactive backdrop-filters (`blur()`), hover states, rounded geometry, pill-shaped save indicators, custom responsive media queries, and precise padding for different block typography levels.
+**What I asked for:**
+Implement a drag-and-drop feature for blocks and make sure the order is strictly maintained inside the database safely.
+
+**What it generated:**
+- Added the `@dnd-kit/core`, `@dnd-kit/sortable`, and `@dnd-kit/utilities` accessible library dependencies to the Next.js `frontend`.
+- Wrapped `editor-shell.js` block arrays in structured `<DndContext>` and `<SortableContext>` loops.
+- Defined specific configuration in a `PointerSensor` mapping to allow simple clicks to access the block menu without locking input to drag logic prematurely.
+- Exported drag node binding listeners and transform hooks to the `.block-handle-btn` SVG elements rendered by `BlockMenu` inside `block-renderer.js`. 
+- Hooked `handleDragEnd` sorting via `@dnd-kit`'s `arrayMove`, tying it natively into `assignOrderIndexes()`. This allows newly reordered sequences to gracefully shift their interval markers relative to DB indexes by cleanly assigning properties and firing the global patched payload `autoroute`.

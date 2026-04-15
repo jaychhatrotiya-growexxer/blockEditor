@@ -5,8 +5,107 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
 import { BlockRenderer } from "./blocks/block-renderer";
 import { SlashMenu, getFilteredCommands, COMMANDS } from "./slash/slash-menu";
-
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  rectIntersection,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 const DEFAULT_BLOCK_ORDER_GAP = 1024;
+const DELETE_DROPZONE_ID = "editor-delete-dropzone";
+
+function DeleteDropZone({ visible }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: DELETE_DROPZONE_ID,
+  });
+
+  return (
+    <div
+      className={`editor-delete-dropzone-wrapper${visible ? " editor-delete-dropzone-wrapper--visible" : ""}`}
+      aria-hidden={!visible}
+    >
+      <div
+        ref={setNodeRef}
+        className={`editor-delete-dropzone${isOver ? " editor-delete-dropzone--active" : ""}`}
+      >
+        <span className="editor-delete-dropzone-icon">✕</span>
+        <span className="editor-delete-dropzone-text">
+          {isOver ? "Release to delete block" : "Drop here to delete"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function InsertBlockControl({ onInsert }) {
+  return (
+    <div className="editor-insert-control">
+      <button
+        className="editor-insert-control-btn"
+        type="button"
+        onClick={onInsert}
+        title="Add paragraph"
+        aria-label="Add paragraph"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function BulkSelectionBar({
+  visible,
+  allSelected,
+  selectedCount,
+  onSelectAll,
+  onDelete,
+  onCancel,
+}) {
+  return (
+    <div
+      className={`editor-bulk-bar-wrapper${visible ? " editor-bulk-bar-wrapper--visible" : ""}`}
+      aria-hidden={!visible}
+    >
+      <div className="editor-bulk-bar">
+        <span className="editor-bulk-bar-count">
+          {selectedCount} {selectedCount === 1 ? "block" : "blocks"} selected
+        </span>
+        <button
+          className="editor-bulk-bar-btn"
+          type="button"
+          onClick={onSelectAll}
+          disabled={allSelected}
+        >
+          Select all
+        </button>
+        <button
+          className="editor-bulk-bar-btn editor-bulk-bar-btn--danger"
+          type="button"
+          onClick={onDelete}
+        >
+          Delete
+        </button>
+        <button
+          className="editor-bulk-bar-btn editor-bulk-bar-btn--ghost"
+          type="button"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function generateId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
@@ -64,9 +163,72 @@ export function EditorShell({ documentId }) {
   const [saveState, setSaveState] = useState("idle");
   const [documentLoaded, setDocumentLoaded] = useState(false);
   const [showBlockToolbar, setShowBlockToolbar] = useState(false);
+  const [activeDragId, setActiveDragId] = useState(null);
+  const [selectedBlockIds, setSelectedBlockIds] = useState([]);
   const blockToolbarRef = useRef(null);
   const blockToolbarBtnRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const collisionDetectionStrategy = useCallback((args) => {
+    const deleteZone = args.droppableContainers.filter(
+      (container) => container.id === DELETE_DROPZONE_ID,
+    );
+    const deleteCollisions = rectIntersection({
+      ...args,
+      droppableContainers: deleteZone,
+    });
+
+    if (deleteCollisions.length > 0) {
+      return deleteCollisions;
+    }
+
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter(
+        (container) => container.id !== DELETE_DROPZONE_ID,
+      ),
+    });
+  }, []);
+
+  function handleDragStart(event) {
+    setActiveDragId(event.active.id);
+  }
+
+  function handleDragCancel() {
+    setActiveDragId(null);
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    setActiveDragId(null);
+
+    if (over?.id === DELETE_DROPZONE_ID) {
+      deleteBlock(active.id);
+      return;
+    }
+
+    if (over && active.id !== over.id) {
+      setBlocksAndMarkDirty((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        return assignOrderIndexes(newItems);
+      });
+    }
+  }
 
   function setBlocksAndMarkDirty(updater) {
     setBlocks((current) => {
@@ -154,6 +316,18 @@ export function EditorShell({ documentId }) {
       const filtered = current.filter((block) => block.id !== blockId);
       return assignOrderIndexes(filtered);
     });
+    setSelectedBlockIds((current) => current.filter((id) => id !== blockId));
+  }
+
+  function deleteSelectedBlocks() {
+    if (selectedBlockIds.length === 0) return;
+
+    const selected = new Set(selectedBlockIds);
+    setBlocksAndMarkDirty((current) =>
+      assignOrderIndexes(current.filter((block) => !selected.has(block.id))),
+    );
+    setSelectedBlockIds([]);
+    closeSlashMenu();
   }
 
   function addBlock(type = "paragraph") {
@@ -178,6 +352,38 @@ export function EditorShell({ documentId }) {
     });
     setFocusId(newBlock.id);
     setShowBlockToolbar(false);
+  }
+
+  function insertParagraphAt(index) {
+    const newBlock = createBlankParagraphBlock();
+
+    setBlocksAndMarkDirty((current) => {
+      const nextBlocks = [...current];
+      nextBlocks.splice(index, 0, newBlock);
+      return assignOrderIndexes(nextBlocks);
+    });
+
+    closeSlashMenu();
+    setFocusId(newBlock.id);
+    setShowBlockToolbar(false);
+  }
+
+  function toggleBlockSelection(blockId, checked) {
+    setSelectedBlockIds((current) => {
+      if (checked) {
+        return current.includes(blockId) ? current : [...current, blockId];
+      }
+
+      return current.filter((id) => id !== blockId);
+    });
+  }
+
+  function selectAllBlocks() {
+    setSelectedBlockIds(blocks.map((block) => block.id));
+  }
+
+  function clearBlockSelection() {
+    setSelectedBlockIds([]);
   }
 
   function splitBlock(blockId, segments) {
@@ -432,6 +638,12 @@ export function EditorShell({ documentId }) {
   }, [blocks, documentTitle, documentLoaded, isLoadingDoc]);
 
   useEffect(() => {
+    setSelectedBlockIds((current) =>
+      current.filter((id) => blocks.some((block) => block.id === id)),
+    );
+  }, [blocks]);
+
+  useEffect(() => {
     if (!focusId) return;
     const element = document.querySelector(`[data-block-id="${focusId}"]`);
     if (element) {
@@ -457,6 +669,9 @@ export function EditorShell({ documentId }) {
       : saveState === "error" ? "save-pill save-pill--error"
         : saveState === "saving" ? "save-pill save-pill--saving"
           : "save-pill";
+  const selectedCount = selectedBlockIds.length;
+  const isSelectionMode = selectedCount > 0;
+  const allBlocksSelected = blocks.length > 0 && selectedCount === blocks.length;
 
   return (
     <div className="editor-layout">
@@ -549,29 +764,49 @@ export function EditorShell({ documentId }) {
       {/* ── Canvas ── */}
       <main className="editor-canvas">
         <div className="editor-page-content">
-          <div className="editor-blocks">
-            {blocks.map((block) => (
-              <BlockRenderer
-                key={block.id}
-                block={block}
-                onChange={(nextContent) =>
-                  updateBlock(block.id, () => ({
-                    content: { ...block.content, ...nextContent },
-                  }))
-                }
-                onToggle={(checked) =>
-                  updateBlock(block.id, () => ({
-                    content: { ...block.content, checked },
-                  }))
-                }
-                onSplit={(segments) => splitBlock(block.id, segments)}
-                onBackspace={() => handleBackspace(block.id)}
-                onSlash={(event) => handleSlashKey(event, block.id)}
-                onChangeType={changeBlockType}
-                onDelete={deleteBlock}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={collisionDetectionStrategy}
+            onDragStart={handleDragStart}
+            onDragCancel={handleDragCancel}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={blocks.map((b) => b.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="editor-blocks">
+                <InsertBlockControl onInsert={() => insertParagraphAt(0)} />
+                {blocks.map((block, index) => (
+                  <div className="editor-block-stack" key={block.id}>
+                    <BlockRenderer
+                      block={block}
+                      isSelected={selectedBlockIds.includes(block.id)}
+                      showSelectionControls={isSelectionMode}
+                      onSelectChange={toggleBlockSelection}
+                      onChange={(nextContent) =>
+                        updateBlock(block.id, () => ({
+                          content: { ...block.content, ...nextContent },
+                        }))
+                      }
+                      onToggle={(checked) =>
+                        updateBlock(block.id, () => ({
+                          content: { ...block.content, checked },
+                        }))
+                      }
+                      onSplit={(segments) => splitBlock(block.id, segments)}
+                      onBackspace={() => handleBackspace(block.id)}
+                      onSlash={(event) => handleSlashKey(event, block.id)}
+                      onChangeType={changeBlockType}
+                      onDelete={deleteBlock}
+                    />
+                    <InsertBlockControl onInsert={() => insertParagraphAt(index + 1)} />
+                  </div>
+                ))}
+              </div>
+            </SortableContext>
+            <DeleteDropZone visible={Boolean(activeDragId)} />
+          </DndContext>
 
           {/* Click to add block area */}
           <div
@@ -593,6 +828,15 @@ export function EditorShell({ documentId }) {
             applySlashSelection(slashState.activeId, type);
           }
         }}
+      />
+
+      <BulkSelectionBar
+        visible={isSelectionMode && !activeDragId}
+        allSelected={allBlocksSelected}
+        selectedCount={selectedCount}
+        onSelectAll={selectAllBlocks}
+        onDelete={deleteSelectedBlocks}
+        onCancel={clearBlockSelection}
       />
 
       {/* ── Floating Action Bar ── */}
