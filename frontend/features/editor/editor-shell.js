@@ -219,6 +219,276 @@ function assignOrderIndexes(blocks) {
   }));
 }
 
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sanitizeFileName(value) {
+  return (value || "document")
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    .trim()
+    .slice(0, 80) || "document";
+}
+
+function clampImageWidth(value) {
+  const width = Number(value);
+
+  if (Number.isNaN(width)) {
+    return 50;
+  }
+
+  return Math.min(100, Math.max(20, Math.round(width)));
+}
+
+function normalizeImageAlign(value) {
+  return ["left", "center", "right"].includes(value) ? value : "center";
+}
+
+function formatPrintText(text) {
+  return escapeHtml(text).replace(/\n/g, "<br />");
+}
+
+function renderPrintBlock(block) {
+  const text = typeof block.content?.text === "string" ? block.content.text : "";
+  const url = typeof block.content?.url === "string" ? block.content.url.trim() : "";
+
+  if (block.type === "heading_1") {
+    return `<h1 class="pdf-heading-1">${formatPrintText(text || "Untitled heading")}</h1>`;
+  }
+
+  if (block.type === "heading_2") {
+    return `<h2 class="pdf-heading-2">${formatPrintText(text || "Section heading")}</h2>`;
+  }
+
+  if (block.type === "todo") {
+    return `
+      <div class="pdf-todo">
+        <span class="pdf-todo-box${block.content?.checked ? " pdf-todo-box--checked" : ""}">
+          ${block.content?.checked ? "&#10003;" : ""}
+        </span>
+        <div class="pdf-todo-text">${formatPrintText(text)}</div>
+      </div>
+    `;
+  }
+
+  if (block.type === "code") {
+    return `<pre class="pdf-code">${escapeHtml(text)}</pre>`;
+  }
+
+  if (block.type === "divider") {
+    return `<hr class="pdf-divider" />`;
+  }
+
+  if (block.type === "image") {
+    if (!url) {
+      return `<div class="pdf-image-placeholder">Image block</div>`;
+    }
+
+    return `
+      <figure
+        class="pdf-image-wrap"
+        style="
+          width:${clampImageWidth(block.content?.width)}%;
+          margin-left:${normalizeImageAlign(block.content?.align) === "right" ? "auto" : "0"};
+          margin-right:${normalizeImageAlign(block.content?.align) === "left" ? "auto" : "0"};
+        "
+      >
+        <img class="pdf-image" src="${escapeHtml(url)}" alt="" />
+      </figure>
+    `;
+  }
+
+  return `<p class="pdf-paragraph">${formatPrintText(text)}</p>`;
+}
+
+function buildPrintHtml(title, blocks) {
+  const content =
+    Array.isArray(blocks) && blocks.length > 0
+      ? blocks.map((block) => renderPrintBlock(block)).join("")
+      : `<p class="pdf-empty">This document is empty.</p>`;
+
+  return `
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(sanitizeFileName(title))}</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 18mm 16mm 20mm;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            color: #1f2937;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+          }
+
+          body {
+            padding: 0;
+          }
+
+          .pdf-document {
+            width: 100%;
+          }
+
+          .pdf-title {
+            margin: 0 0 20px;
+            font-size: 28px;
+            line-height: 1.05;
+            letter-spacing: -0.04em;
+            color: #111827;
+          }
+
+          .pdf-meta {
+            margin: 0 0 28px;
+            font-size: 12px;
+            color: #6b7280;
+          }
+
+          .pdf-heading-1,
+          .pdf-heading-2,
+          .pdf-paragraph,
+          .pdf-code,
+          .pdf-todo,
+          .pdf-image-wrap,
+          .pdf-image-placeholder,
+          .pdf-divider,
+          .pdf-empty {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .pdf-heading-1 {
+            margin: 28px 0 10px;
+            font-size: 24px;
+            line-height: 1.12;
+            letter-spacing: -0.04em;
+            color: #111827;
+          }
+
+          .pdf-heading-2 {
+            margin: 24px 0 8px;
+            font-size: 18px;
+            line-height: 1.18;
+            letter-spacing: -0.03em;
+            color: #111827;
+          }
+
+          .pdf-paragraph,
+          .pdf-empty {
+            margin: 0 0 12px;
+            font-size: 13px;
+            line-height: 1.75;
+            color: #374151;
+            white-space: normal;
+            word-break: break-word;
+          }
+
+          .pdf-todo {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 0 0 12px;
+          }
+
+          .pdf-todo-box {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #9ca3af;
+            border-radius: 4px;
+            color: transparent;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+          }
+
+          .pdf-todo-box--checked {
+            border-color: #2563eb;
+            background: #2563eb;
+            color: #ffffff;
+          }
+
+          .pdf-todo-text {
+            flex: 1;
+            font-size: 13px;
+            line-height: 1.75;
+            color: #374151;
+            word-break: break-word;
+          }
+
+          .pdf-code {
+            margin: 8px 0 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+            font-size: 11px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #111827;
+          }
+
+          .pdf-divider {
+            margin: 18px 0;
+            border: none;
+            border-top: 1px solid #d1d5db;
+          }
+
+          .pdf-image-wrap {
+            margin: 16px 0 18px;
+          }
+
+          .pdf-image {
+            display: block;
+            max-width: 100%;
+            max-height: 520px;
+            object-fit: contain;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+          }
+
+          .pdf-image-placeholder {
+            margin: 16px 0 18px;
+            padding: 16px 18px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px dashed #d1d5db;
+            color: #6b7280;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <article class="pdf-document">
+          <h1 class="pdf-title">${escapeHtml(title || "Untitled document")}</h1>
+          <p class="pdf-meta">Exported from BlockNote</p>
+          ${content}
+        </article>
+      </body>
+    </html>
+  `;
+}
+
 export function EditorShell({ documentId, shareToken = "" }) {
   const { authorizedRequest, logout } = useAuth();
   const router = useRouter();
@@ -239,6 +509,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
   const [activeShareToken, setActiveShareToken] = useState("");
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
   const [shareError, setShareError] = useState("");
   const blockToolbarRef = useRef(null);
@@ -395,7 +666,11 @@ export function EditorShell({ documentId, shareToken = "" }) {
         }
 
         if (type === "image") {
-          return { ...block, type: "image", content: { url: "" } };
+          return {
+            ...block,
+            type: "image",
+            content: { url: "", width: 50, align: "center" },
+          };
         }
 
         if (type === "todo") {
@@ -443,7 +718,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
         type === "divider"
           ? {}
           : type === "image"
-            ? { url: "" }
+            ? { url: "", width: 50, align: "center" }
             : type === "todo"
               ? { text: "", checked: false }
               : { text: "" },
@@ -541,7 +816,11 @@ export function EditorShell({ documentId, shareToken = "" }) {
           currentBlock.type === "todo"
             ? { text: afterText, checked: currentBlock.content?.checked ?? false }
             : currentBlock.type === "image"
-              ? { url: "" }
+              ? {
+                  url: "",
+                  width: currentBlock.content?.width ?? 50,
+                  align: normalizeImageAlign(currentBlock.content?.align),
+                }
               : { text: afterText },
         orderIndex: (currentBlock.orderIndex ?? 0) + DEFAULT_BLOCK_ORDER_GAP / 2,
       };
@@ -709,7 +988,13 @@ export function EditorShell({ documentId, shareToken = "" }) {
       current.map((block) => {
         if (block.id !== blockId) return block;
         if (type === "divider") return { ...block, type: "divider", content: {} };
-        if (type === "image") return { ...block, type: "image", content: { url: "" } };
+        if (type === "image") {
+          return {
+            ...block,
+            type: "image",
+            content: { url: "", width: 50, align: "center" },
+          };
+        }
         if (type === "todo") return { ...block, type: "todo", content: { text: "", checked: false } };
         return { ...block, type, content: { text: "" } };
       }),
@@ -813,6 +1098,62 @@ export function EditorShell({ documentId, shareToken = "" }) {
       setShareError(error.message || "Unable to expire share link.");
     } finally {
       setShareBusy(false);
+    }
+  }
+
+  async function handleDownloadPdf() {
+    setIsDownloadingPdf(true);
+
+    try {
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+
+      const html = buildPrintHtml(documentTitle, assignOrderIndexes(blocks));
+      document.body.appendChild(iframe);
+
+      await new Promise((resolve) => {
+        iframe.onload = resolve;
+        iframe.srcdoc = html;
+      });
+
+      const printDocument = iframe.contentDocument;
+      const printWindow = iframe.contentWindow;
+
+      if (!printDocument || !printWindow) {
+        throw new Error("Unable to prepare PDF export.");
+      }
+
+      const images = Array.from(printDocument.images || []);
+      await Promise.all(
+        images.map((image) =>
+          image.complete
+            ? Promise.resolve()
+            : new Promise((resolve) => {
+                image.onload = resolve;
+                image.onerror = resolve;
+              }),
+        ),
+      );
+
+      const cleanup = () => {
+        window.removeEventListener("afterprint", cleanup);
+        printWindow.removeEventListener("afterprint", cleanup);
+        window.clearTimeout(fallbackTimeout);
+        iframe.remove();
+      };
+
+      const fallbackTimeout = window.setTimeout(cleanup, 5000);
+      window.addEventListener("afterprint", cleanup, { once: true });
+      printWindow.addEventListener("afterprint", cleanup, { once: true });
+      printWindow.focus();
+      printWindow.print();
+    } finally {
+      setIsDownloadingPdf(false);
     }
   }
 
@@ -975,6 +1316,19 @@ export function EditorShell({ documentId, shareToken = "" }) {
 
         <div className="editor-topbar-right">
           <span className={saveClass}>{saveLabel}</span>
+
+          <button
+            className="editor-topbar-btn"
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isLoadingDoc || isDownloadingPdf}
+            title="Download PDF"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2V10M8 10L11 7M8 10L5 7M3 12.5H13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {isDownloadingPdf ? "Preparing..." : "Download PDF"}
+          </button>
 
           {!isReadOnly ? (
             <>

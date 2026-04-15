@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthCard } from "@/components/auth-card";
+import { PublicPageShell } from "@/components/public-page-shell";
 import { AuthForm } from "@/features/auth/auth-form";
 import { useAuth } from "@/features/auth/auth-context";
 
@@ -30,23 +31,25 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthCard
-      eyebrow="Day 1"
-      title="Sign in to your workspace"
-      description="Use your account to access documents, block editing, and sharing tools."
-      footer={
-        <p>
-          Need an account? <Link href="/register">Create one</Link>
-        </p>
-      }
-    >
-      <AuthForm
-        mode="login"
-        submitLabel="Sign in"
-        onSubmit={handleSubmit}
-        errorMessage={errorMessage}
-        disabled={isBootstrapping}
-      />
-    </AuthCard>
+    <PublicPageShell ctaHref="/register" ctaLabel="Create account">
+      <AuthCard
+        eyebrow="Day 1"
+        title="Sign in to your workspace"
+        description="Use your account to access documents, block editing, and sharing tools."
+        footer={
+          <p>
+            Need an account? <Link href="/register">Create one</Link>
+          </p>
+        }
+      >
+        <AuthForm
+          mode="login"
+          submitLabel="Sign in"
+          onSubmit={handleSubmit}
+          errorMessage={errorMessage}
+          disabled={isBootstrapping}
+        />
+      </AuthCard>
+    </PublicPageShell>
   );
 }

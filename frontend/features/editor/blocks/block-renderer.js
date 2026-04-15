@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -35,6 +36,7 @@ export function BlockRenderer({
   onChangeType,
   onDelete,
 }) {
+  const [isImageResizePinned, setIsImageResizePinned] = useState(false);
   const {
     attributes,
     listeners,
@@ -43,6 +45,12 @@ export function BlockRenderer({
     transition,
     isDragging,
   } = useSortable({ id: block.id, disabled: readOnly });
+
+  useEffect(() => {
+    if (block.type !== "image") {
+      setIsImageResizePinned(false);
+    }
+  }, [block.id, block.type]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -68,6 +76,7 @@ export function BlockRenderer({
             block={block}
             onChangeType={(type) => onChangeType?.(block.id, type)}
             onDelete={() => onDelete?.(block.id)}
+            onResize={() => setIsImageResizePinned(true)}
             dragHandleProps={{ ...attributes, ...listeners }}
           />
           <label className="editor-block-select" onMouseDown={(event) => event.stopPropagation()}>
@@ -86,6 +95,8 @@ export function BlockRenderer({
         <BlockComponent
           block={block}
           readOnly={readOnly}
+          showResizeControls={isImageResizePinned}
+          onCloseResizeControls={() => setIsImageResizePinned(false)}
           onChange={onChange}
           onToggle={onToggle}
           onSplit={onSplit}

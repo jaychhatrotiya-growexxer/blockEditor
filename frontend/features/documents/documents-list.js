@@ -20,12 +20,14 @@ export function DocumentsList() {
   const router = useRouter();
   const { authorizedRequest } = useAuth();
   const [documents, setDocuments] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [shareMessage, setShareMessage] = useState("");
 
   const sortedDocuments = useMemo(() => {
     return [...documents].sort(
@@ -33,6 +35,18 @@ export function DocumentsList() {
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
   }, [documents]);
+
+  const filteredDocuments = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return sortedDocuments;
+    }
+
+    return sortedDocuments.filter((document) =>
+      document.title.toLowerCase().includes(query),
+    );
+  }, [searchQuery, sortedDocuments]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,6 +183,38 @@ export function DocumentsList() {
     }
   }
 
+  async function handleShare(document) {
+    const shareBusyId = `share:${document.id}`;
+
+    setBusyId(shareBusyId);
+    setError("");
+    setErrorDetails("");
+    setShareMessage("");
+
+    try {
+      const result = await authorizedRequest(`/documents/${document.id}/share`, {
+        method: "POST",
+      });
+
+      const shareToken = result.share?.shareToken;
+      const shareUrl = `${window.location.origin}/documents/${document.id}?share=${shareToken}`;
+
+      await navigator.clipboard.writeText(shareUrl);
+
+      setDocuments((current) =>
+        current.map((item) =>
+          item.id === document.id ? { ...item, isPublic: true } : item,
+        ),
+      );
+      setShareMessage(`Share link copied for "${document.title}".`);
+    } catch (shareError) {
+      setError(shareError.message || "Unable to share document.");
+      setErrorDetails(formatValidationDetails(shareError));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function formatValidationDetails(error) {
     const details = error?.payload?.error?.details;
     if (!details || !details.fieldErrors) {
@@ -191,6 +237,16 @@ export function DocumentsList() {
           <p className="documents-eyebrow">Documents</p>
           <h2>Your workspace</h2>
         </div>
+        <div className="documents-toolbar">
+          <input
+            className="documents-search-input"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search documents"
+            aria-label="Search documents"
+          />
+        </div>
         <button
           className="auth-submit"
           type="button"
@@ -208,17 +264,26 @@ export function DocumentsList() {
         </p>
       ) : null}
 
+      {shareMessage ? (
+        <p className="documents-share-success">{shareMessage}</p>
+      ) : null}
+
       {isLoading ? (
         <p className="auth-loading">Loading documents...</p>
       ) : sortedDocuments.length === 0 ? (
         <div className="documents-empty">
           <p>No documents yet. Create your first one to get started.</p>
         </div>
+      ) : filteredDocuments.length === 0 ? (
+        <div className="documents-empty">
+          <p>No documents match your search.</p>
+        </div>
       ) : (
         <ul className="documents-list">
-          {sortedDocuments.map((document) => {
+          {filteredDocuments.map((document) => {
             const isEditing = editingId === document.id;
             const isBusy = busyId === document.id;
+            const isShareBusy = busyId === `share:${document.id}`;
 
             return (
               <li key={document.id} className="documents-row">
@@ -257,6 +322,18 @@ export function DocumentsList() {
                   <span>{formatTimestamp(document.updatedAt)}</span>
                 </div>
                 <div className="documents-actions">
+                  <button
+                    className="auth-secondary"
+                    type="button"
+                    onClick={() => handleShare(document)}
+                    disabled={isBusy || isShareBusy}
+                  >
+                    {isShareBusy
+                      ? "Sharing..."
+                      : document.isPublic
+                        ? "Copy link"
+                        : "Share"}
+                  </button>
                   <button
                     className="auth-secondary"
                     type="button"

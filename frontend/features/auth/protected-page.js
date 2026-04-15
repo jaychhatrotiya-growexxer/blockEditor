@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { SiteNavbar } from "@/components/site-navbar";
 import { useAuth } from "./auth-context";
 
 export function ProtectedPage({ children, variant = "dashboard" }) {
@@ -37,16 +38,19 @@ export function ProtectedPage({ children, variant = "dashboard" }) {
   }
 
   return (
-    <main className="dashboard-shell">
-      <section className="dashboard-panel">
-        <p className="dashboard-kicker">{user.email}</p>
-        {children}
-        <div className="dashboard-actions">
-          <button className="auth-secondary" type="button" onClick={logout}>
-            Sign out
-          </button>
-        </div>
-      </section>
-    </main>
+    <div className="site-shell">
+      <SiteNavbar />
+      <main className="dashboard-shell dashboard-shell--with-navbar">
+        <section className="dashboard-panel">
+          <p className="dashboard-kicker">{user.email}</p>
+          {children}
+          <div className="dashboard-actions">
+            <button className="auth-secondary" type="button" onClick={logout}>
+              Sign out
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }

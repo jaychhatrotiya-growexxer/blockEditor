@@ -12,7 +12,13 @@ const BLOCK_TYPES = [
   { type: "image", label: "Image", icon: "▣" },
 ];
 
-export function BlockMenu({ block, onChangeType, onDelete, dragHandleProps }) {
+export function BlockMenu({
+  block,
+  onChangeType,
+  onDelete,
+  onResize,
+  dragHandleProps,
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -78,6 +84,26 @@ export function BlockMenu({ block, onChangeType, onDelete, dragHandleProps }) {
               <div className="block-handle-divider" />
             </>
           )}
+          {block.type === "image" ? (
+            <>
+              <button
+                className="block-handle-item"
+                onClick={() => {
+                  onResize?.();
+                  setIsOpen(false);
+                }}
+                type="button"
+                role="menuitem"
+              >
+                <span className="block-handle-item-icon">↔</span>
+                <span className="block-handle-item-text">
+                  <span className="block-handle-item-title">Resize image</span>
+                  <span className="block-handle-item-meta">Open image size controls</span>
+                </span>
+              </button>
+              <div className="block-handle-divider" />
+            </>
+          ) : null}
           <button
             className="block-handle-item block-handle-item--danger"
             onClick={() => {
