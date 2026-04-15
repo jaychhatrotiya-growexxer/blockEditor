@@ -2,16 +2,25 @@ const jwt = require("jsonwebtoken");
 const { env } = require("../../config/env");
 const { AppError } = require("../../utils/app-error");
 const { HTTP_STATUS } = require("../../utils/http-status");
-const { getCurrentUser, login, logout, refreshSession, register } = require("./service");
+const {
+  getCurrentUser,
+  login,
+  logout,
+  refreshSession,
+  register,
+} = require("./service");
 
 function getRefreshCookieOptions(refreshToken) {
   const decoded = refreshToken ? jwt.decode(refreshToken) : null;
-  const maxAge = decoded?.exp ? Math.max(decoded.exp * 1000 - Date.now(), 0) : undefined;
+  const maxAge = decoded?.exp
+    ? Math.max(decoded.exp * 1000 - Date.now(), 0)
+    : undefined;
+  const isLocalhost = env.CLIENT_URL.includes("localhost");
 
   return {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    secure: !isLocalhost,
+    sameSite: isLocalhost ? "lax" : "none",
     path: "/api/v1/auth",
     maxAge,
   };
@@ -22,7 +31,11 @@ function clearRefreshCookie(res) {
 }
 
 function setRefreshCookie(res, refreshToken) {
-  res.cookie(env.REFRESH_COOKIE_NAME, refreshToken, getRefreshCookieOptions(refreshToken));
+  res.cookie(
+    env.REFRESH_COOKIE_NAME,
+    refreshToken,
+    getRefreshCookieOptions(refreshToken),
+  );
 }
 
 function getRefreshTokenFromCookie(req) {
