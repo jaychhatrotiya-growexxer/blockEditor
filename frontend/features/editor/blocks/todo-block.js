@@ -54,7 +54,7 @@ export function TodoBlock({
             const caretOffset = getCaretOffset(event.currentTarget);
             const currentText = event.currentTarget.innerText || "";
 
-            if (caretOffset === 0 || currentText.length === 0 || currentText === "\n") {
+            if (caretOffset === 0 && (currentText === "" || currentText === "\n")) {
               event.preventDefault();
               onBackspace?.();
             }

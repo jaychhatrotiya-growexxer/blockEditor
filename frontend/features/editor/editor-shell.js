@@ -496,7 +496,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
   const [blocks, setBlocks] = useState(() => [
     createBlankParagraphBlock(INITIAL_PLACEHOLDER_BLOCK_ID),
   ]);
-  const [focusId, setFocusId] = useState(null);
+  const [focusConfig, setFocusConfig] = useState(null); // { id: string, focusAtStart: boolean }
   const [slashState, setSlashState] = useState(null);
   const [slashHighlight, setSlashHighlight] = useState(0);
   const [documentTitle, setDocumentTitle] = useState("Untitled document");
@@ -732,7 +732,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
         DEFAULT_BLOCK_ORDER_GAP;
       return [...current, newBlock];
     });
-    setFocusId(newBlock.id);
+    setFocusConfig({ id: newBlock.id, focusAtStart: true });
     setShowBlockToolbar(false);
   }
 
@@ -750,7 +750,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
     });
 
     closeSlashMenu();
-    setFocusId(newBlock.id);
+    setFocusConfig({ id: newBlock.id, focusAtStart: true });
     setShowBlockToolbar(false);
   }
 
@@ -825,17 +825,17 @@ export function EditorShell({ documentId, shareToken = "" }) {
             ? { text: afterText, checked: false }
             : nextType === "image"
               ? {
-                  url: "",
-                  width: currentBlock.content?.width ?? 50,
-                  align: normalizeImageAlign(currentBlock.content?.align),
-                }
+                url: "",
+                width: currentBlock.content?.width ?? 50,
+                align: normalizeImageAlign(currentBlock.content?.align),
+              }
               : { text: afterText },
         orderIndex: (currentBlock.orderIndex ?? 0) + DEFAULT_BLOCK_ORDER_GAP / 2,
       };
 
       const nextBlocks = [...current];
       nextBlocks.splice(index, 1, updatedBlock, nextBlock);
-      setFocusId(nextBlock.id);
+      setFocusConfig({ id: nextBlock.id, focusAtStart: true });
       return assignOrderIndexes(nextBlocks);
     });
   }
@@ -865,7 +865,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
       }
 
       if (current.length === 1) {
-        setFocusId(null);
+        setFocusConfig(null);
         return [];
       }
 
@@ -875,7 +875,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
 
       const nextBlocks = [...current];
       nextBlocks.splice(index, 1);
-      setFocusId(previousBlock.id);
+      setFocusConfig({ id: previousBlock.id, focusAtStart: false });
       return assignOrderIndexes(nextBlocks);
     });
   }
@@ -919,6 +919,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
 
     if (!slashState || slashState.activeId !== blockId) {
       if (event.key === "/" && event.currentTarget.textContent === "") {
+        event.preventDefault();
         openSlashMenu(blockId);
         return true;
       }
@@ -1014,7 +1015,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
     );
 
     closeSlashMenu();
-    setFocusId(blockId);
+    setFocusConfig({ id: blockId, focusAtStart: true });
   }
 
   // Close block toolbar when clicking outside
@@ -1147,9 +1148,9 @@ export function EditorShell({ documentId, shareToken = "" }) {
           image.complete
             ? Promise.resolve()
             : new Promise((resolve) => {
-                image.onload = resolve;
-                image.onerror = resolve;
-              }),
+              image.onload = resolve;
+              image.onerror = resolve;
+            }),
         ),
       );
 
@@ -1262,33 +1263,33 @@ export function EditorShell({ documentId, shareToken = "" }) {
       return;
     }
 
-    if (!focusId) return;
-    const element = document.querySelector(`[data-block-id="${focusId}"]`);
+    if (!focusConfig) return;
+    const element = document.querySelector(`[data-block-id="${focusConfig.id}"]`);
     if (element) {
       element.focus();
       const range = document.createRange();
       range.selectNodeContents(element);
-      range.collapse(false);
+      range.collapse(focusConfig.focusAtStart);
       const selection = window.getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
     }
-    setFocusId(null);
-  }, [focusId, blocks, isReadOnly]);
+    setFocusConfig(null);
+  }, [focusConfig, blocks, isReadOnly]);
 
   const saveLabel =
     isReadOnly ? "Read only"
       : saveState === "saving" ? "Saving…"
-      : saveState === "saved" ? "Saved"
-        : saveState === "error" ? "Save failed"
-          : "Unsaved";
+        : saveState === "saved" ? "Saved"
+          : saveState === "error" ? "Save failed"
+            : "Unsaved";
 
   const saveClass =
     isReadOnly ? "save-pill save-pill--readonly"
       : saveState === "saved" ? "save-pill save-pill--saved"
-      : saveState === "error" ? "save-pill save-pill--error"
-        : saveState === "saving" ? "save-pill save-pill--saving"
-          : "save-pill";
+        : saveState === "error" ? "save-pill save-pill--error"
+          : saveState === "saving" ? "save-pill save-pill--saving"
+            : "save-pill";
   const selectedCount = selectedBlockIds.length;
   const isSelectionMode = !isReadOnly && selectedCount > 0;
   const allBlocksSelected = blocks.length > 0 && selectedCount === blocks.length;
