@@ -36,6 +36,9 @@ export function ImageBlock({
   showResizeControls,
   onCloseResizeControls,
   onChange,
+  onSlash,
+  onBackspace,
+  onSplit,
 }) {
   const url = block.content?.url || "";
   const imageWidth = clampImageWidth(block.content?.width);
@@ -48,6 +51,20 @@ export function ImageBlock({
   const inputRef = useRef(null);
   const imageRef = useRef(null);
   const imageContainerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  function handleDraftChange(event) {
+    const nextUrl = event.target.value;
+    setDraftUrl(nextUrl);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      onChange?.({ url: nextUrl.trim(), width: imageWidth, align: imageAlign });
+    }, 600);
+  }
 
   useEffect(() => {
     if (readOnly) {
@@ -88,7 +105,6 @@ export function ImageBlock({
 
     setImageLoading(false);
     setImageError(true);
-    setIsEditing(true);
   }, [url, isEditing]);
 
   useEffect(() => {
@@ -106,13 +122,15 @@ export function ImageBlock({
       let nextWidth;
 
       if (imageAlign === "left") {
-        nextWidth = ((event.clientX - containerRect.left) / containerRect.width) * 100;
+        nextWidth =
+          ((event.clientX - containerRect.left) / containerRect.width) * 100;
       } else if (imageAlign === "right") {
-        nextWidth = ((containerRect.right - event.clientX) / containerRect.width) * 100;
+        nextWidth =
+          ((containerRect.right - event.clientX) / containerRect.width) * 100;
       } else {
         const centerX = containerRect.left + containerRect.width / 2;
         nextWidth =
-          (Math.abs(event.clientX - centerX) * 2 / containerRect.width) * 100;
+          ((Math.abs(event.clientX - centerX) * 2) / containerRect.width) * 100;
       }
 
       handleResize(nextWidth);
@@ -178,7 +196,6 @@ export function ImageBlock({
   function handleImageError() {
     setImageLoading(false);
     setImageError(true);
-    setIsEditing(true);
   }
 
   function handleResize(nextWidth) {
@@ -214,6 +231,7 @@ export function ImageBlock({
     <div
       className={`block-image-wrapper${showResizeControls ? " block-image-wrapper--controls-pinned" : ""}${isResizing ? " block-image-wrapper--resizing" : ""}`}
       tabIndex={-1}
+      data-block-id={block.id}
       onBlur={handleWrapperBlur}
       style={{ outline: "none" }}
     >
@@ -233,7 +251,9 @@ export function ImageBlock({
                 <div className="block-image-loading">Loading...</div>
               ) : null}
               {imageError ? (
-                <div className="block-image-error">Image could not be loaded.</div>
+                <div className="block-image-error">
+                  Image could not be loaded.
+                </div>
               ) : null}
             </div>
           </div>
@@ -250,11 +270,35 @@ export function ImageBlock({
             type="url"
             placeholder="Paste image URL"
             value={draftUrl}
-            onChange={(event) => setDraftUrl(event.target.value)}
+            onChange={handleDraftChange}
+            aria-invalid={imageError ? "true" : "false"}
             onKeyDown={(event) => {
+              // If the URL is empty or slash state is active, forward to onSlash
+              if (onSlash) {
+                if (event.key === "/" && draftUrl) {
+                  // Do nothing, let user type the URL normally
+                } else if (onSlash(event)) {
+                  return;
+                }
+              }
+
+              if (event.key === "Backspace") {
+                if (!draftUrl) {
+                  event.preventDefault();
+                  onBackspace?.();
+                  return;
+                }
+              }
+
               if (event.key === "Enter") {
                 event.preventDefault();
-                finishEditing();
+                const isAtEnd = inputRef.current && inputRef.current.selectionStart === draftUrl.length;
+                if (!draftUrl || isAtEnd) {
+                  finishEditing();
+                  onSplit?.({ before: "", after: "" });
+                } else {
+                  finishEditing();
+                }
               }
 
               if (event.key === "Escape") {
@@ -339,7 +383,16 @@ export function ImageBlock({
               tabIndex={0}
               onClick={openEditor}
               onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
+                if (onSlash?.(event)) {
+                  return;
+                }
+
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onSplit?.({ before: "", after: "" });
+                }
+
+                if (event.key === " ") {
                   event.preventDefault();
                   openEditor();
                 }
@@ -350,12 +403,17 @@ export function ImageBlock({
                 ref={imageRef}
                 className="block-image"
                 src={url}
-                alt=""
+                alt="block image"
                 onLoad={handleImageLoad}
                 onError={handleImageError}
               />
               {imageLoading ? (
                 <div className="block-image-loading">Loading...</div>
+              ) : null}
+              {imageError ? (
+                <div className="block-image-error">
+                  Image could not be loaded. Click to edit the URL.
+                </div>
               ) : null}
               <button
                 className="block-image-resize-handle"
@@ -368,7 +426,12 @@ export function ImageBlock({
                 }}
                 onPointerDown={handleResizeStart}
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  aria-hidden="true"
+                >
                   <path
                     d="M4 10L10 4M7 10L10 7M10 10L10 10"
                     fill="none"

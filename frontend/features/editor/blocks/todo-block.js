@@ -52,8 +52,9 @@ export function TodoBlock({
 
           if (event.key === "Backspace") {
             const caretOffset = getCaretOffset(event.currentTarget);
+            const currentText = event.currentTarget.innerText || "";
 
-            if (caretOffset === 0) {
+            if (caretOffset === 0 || currentText.length === 0 || currentText === "\n") {
               event.preventDefault();
               onBackspace?.();
             }

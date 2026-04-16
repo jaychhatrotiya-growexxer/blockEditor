@@ -1,67 +1,74 @@
-# BlockNote Intern Practical
+# BlockNote: Focused Document Workflows
 
-Browser-based block document editor built with Next.js, Express, PostgreSQL, and Prisma.
+BlockNote is a premium, browser-based block document editor designed for focus and productivity. Built with a modern tech stack, it provides a seamless writing experience with real-time saving, flexible block management, and easy document sharing.
 
-## Setup (Local)
+## ✨ Features
 
-1. Install dependencies:
-   - `npm install`
-2. Ensure your environment files are present:
-   - Root env: `.env`
-   - Frontend env: `frontend/.env`
-3. Start PostgreSQL (Docker):
-   - `docker compose up -d`
-4. Run Prisma migrations:
-   - `npm run prisma:migrate --workspace backend`
-5. Start the apps:
-   - Backend: `npm run dev:backend`
-   - Frontend: `npm run dev:frontend`
+- **Block-Based Editing**: Intuitive interface with various block types (Paragraph, Heading 1/2, Todo, Code, Divider, Image).
+- **Drag-and-Drop**: Effortlessly reorder blocks with smooth drag-and-drop interactions.
+- **Slash Commands**: Quickly insert new blocks using the responsive `/` menu.
+- **Real-Time Auto-Save**: Your work is automatically saved as you type, ensuring no data loss.
+- **Document Sharing**: Generate secure, read-only share links to collaborate or showcase your work.
+- **PDF Export**: Single-click PDF generation with professional, print-friendly styling.
+- **Auth & Sessions**: Secure JWT-based authentication with refresh token rotation.
+- **Forbidden Access Handling**: Beautiful, stateful "Access Denied" page for unauthorized document access.
 
-## Environment Variables
+## 🛠️ Tech Stack
 
-Reference `.env.example` for the full list.
+### Frontend
+- **Framework**: Next.js (App Router)
+- **Styling**: Vanilla CSS (Global & Scoped)
+- **State Management**: React Hooks & Context API
+- **Drag & Drop**: @dnd-kit
 
-Backend (root `.env`):
-- `PORT`: Express server port
-- `CLIENT_URL`: Frontend origin used by CORS
-- `DATABASE_URL`: PostgreSQL connection string
-- `JWT_ACCESS_SECRET`: Secret for access JWTs
-- `JWT_REFRESH_SECRET`: Secret for refresh JWTs
-- `ACCESS_TOKEN_EXPIRES_IN`: Access token TTL, e.g. `15m`
-- `REFRESH_TOKEN_EXPIRES_IN`: Refresh token TTL, e.g. `7d`
-- `REFRESH_COOKIE_NAME`: Cookie name for refresh token
-- `SHARE_TOKEN_SECRET`: Secret used for share token hashing
-- `BCRYPT_SALT_ROUNDS`: Cost factor for password hashing
+### Backend
+- **Core**: Express.js
+- **Database**: PostgreSQL
+- **ORM**: Prisma
+- **Auth**: JWT (Access + Refresh Rotation), Bcrypt for hashing
+- **Validation**: Zod
 
-Frontend (`frontend/.env`):
-- `NEXT_PUBLIC_API_BASE_URL`: Base URL for the backend, e.g. `http://localhost:4000/api/v1`
+## 🚀 Getting Started
 
-## Architecture Decisions
+### Prerequisites
+- Node.js (v18+)
+- Docker (for PostgreSQL database)
 
-- Next.js (App Router) for the frontend, plain JavaScript only
-- Express.js REST API with centralized error handling
-- PostgreSQL + Prisma ORM with parameterized queries
-- JWT auth with refresh-token rotation stored in DB
-- Clean module boundaries: `route -> controller -> service -> repository`
+### Installation
 
-## Known Issues
+1. **Clone the repository and install dependencies**:
+   ```bash
+   npm install
+   ```
 
-- Local DB setup requires Docker; if Docker is not installed, migrations cannot be applied locally.
-- Block editor functionality is not yet implemented (Day 2–3 scope).
+2. **Configure Environment Variables**:
+   - Create a `.env` file in the root directory (refer to `.env.example`).
+   - Create a `frontend/.env` file with `NEXT_PUBLIC_API_BASE_URL`.
 
-## Edge Case Decisions
+3. **Spin up the Database**:
+   ```bash
+   docker compose up -d
+   ```
 
-- Enter mid-block split: must preserve all text and move cursor to the new block (planned for Day 2–3).
-- Backspace at start of first block: no-op to avoid deleting the only block (planned for Day 2–3).
-- Backspace when previous block is non-text: focus moves to the previous block wrapper (planned for Day 2–3).
-- Slash menu text bleed: slash input never persists to block content (planned for Day 2–3).
-- `order_index` is FLOAT and renormalized when gaps < `0.001` (planned for Day 4).
-- Auto-save race condition: queued/aborted saves to prevent stale overwrite (planned for Day 4).
-- Cross-account access: protected by user ownership checks, returns 403 (implemented).
+4. **Initialize Database Schema**:
+   ```bash
+   npm run prisma:migrate --workspace backend
+   ```
 
-## Repository Checklist
+### Running the Application
 
-- `.env.example` present
-- Prisma schema uses FLOAT for `order_index`
-- Auth and document APIs are protected with JWT
-- Share APIs and editor modules to be implemented in later phases
+- **Backend**: `npm run dev:backend` (runs on http://localhost:4000)
+- **Frontend**: `npm run dev:frontend` (runs on http://localhost:3000)
+
+## 🏗️ Architecture
+
+The project follows a clean, modular architecture:
+- **Frontend**: Organized by `features` (auth, documents, editor) with reusable `components` and `lib` for utility logic.
+- **Backend**: Structured into modules (`auth`, `documents`) following a `route -> controller -> service -> repository` pattern for clear separation of concerns.
+
+## 🔒 Security
+
+- All sensitive routes are protected by a JWT authorization middleware.
+- Documents are private by default and owned by the creator.
+- Share tokens are securely hashed in the database.
+- Refresh token rotation prevents session hijacking.

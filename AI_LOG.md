@@ -50,3 +50,71 @@ Implement a drag-and-drop feature for blocks and make sure the order is strictly
 - Defined specific configuration in a `PointerSensor` mapping to allow simple clicks to access the block menu without locking input to drag logic prematurely.
 - Exported drag node binding listeners and transform hooks to the `.block-handle-btn` SVG elements rendered by `BlockMenu` inside `block-renderer.js`. 
 - Hooked `handleDragEnd` sorting via `@dnd-kit`'s `arrayMove`, tying it natively into `assignOrderIndexes()`. This allows newly reordered sequences to gracefully shift their interval markers relative to DB indexes by cleanly assigning properties and firing the global patched payload `autoroute`.
+
+## 2026-04-15
+
+**Tool:** AI assistant (reconstructed from commit history; exact product name was not recorded in the repo)
+
+**What I asked for:**
+1. Fix the production session issue.
+2. Implement document sharing with a public read-only view.
+3. Add PDF download, improve image block resizing/alignment, and upgrade the public landing/auth experience.
+
+**What it generated:**
+- Updated refresh-cookie handling in `backend/src/modules/auth/controller.js` so `secure` and `sameSite` behavior adapt correctly for localhost versus deployed environments.
+- Added document share-link creation, public document lookup by token, and share expiration flows across the backend document controller, routes, validation, and service layers.
+- Extended `frontend/features/editor/editor-shell.js` with a share dialog, read-only shared mode, better empty-state handling, and selection toolbar improvements.
+- Added browser-based PDF export from the editor, including print-friendly rendering for headings, paragraphs, todos, code blocks, dividers, and images.
+- Upgraded image blocks with width/alignment metadata, visible resize controls, and cleaner presentation logic after images load.
+- Refreshed the frontend public experience with a new landing page, site navbar, improved login/register shells, and document list polish including search/share-related UI updates.
+
+**What was wrong or missing:**
+The exact AI tool name used that day was not preserved in the repository, so this log had to be reconstructed from the April 15, 2026 git history. The PDF download flow also appears to rely on the browser print pipeline rather than a dedicated server-side export service.
+
+**What I changed and why:**
+I adjusted the auth cookie logic to resolve the production session problem, wired share-link support through the backend and editor UI, and added PDF export plus image/layout improvements so the product could support sharing and a more polished public-facing experience.
+
+## 2026-04-16
+
+**Tool:** Antigravity (Google DeepMind)
+
+**What I asked for:**
+1. Fix the image block so the slash menu correctly shows up when the block is empty.
+2. Fix the backspace behavior so removing an empty block places the cursor at the end of the previous block, rather than the start.
+3. Guarantee that backspace successfully removes *any* completely empty block across the editor.
+4. Ensure the enter key accurately maintains line break formatting, particularly in code blocks.
+5. Create a seamless split behavior where pressing Enter at the end of any block (except code blocks) seamlessly drops down a new paragraph block.
+6. Ensure Enter works elegantly for image blocks to create new paragraph blocks below them.
+7. Fix an introduced bug where splitting text created blank blocks instead of correctly passing the split text.
+8. Implement debounced saving for the image block URL input.
+9. Support the Tab key in code blocks to insert 2 spaces without losing focus.
+10. Reformat share links to use a clean `/share/:token` route instead of query parameters.
+
+**What it generated:**
+- Added the missing `data-block-id` to the `ImageBlock` container so the editor shell could correctly calculate the slash menu dropdown position.
+- Wired the `onSlash` prop to `ImageBlock` inputs so the slash menu safely opens when typing `/`.
+- Modified `editor-shell.js` cursor reset logic from `range.collapse(true)` to `range.collapse(false)` so the cursor naturally lands at the end of the previous block upon deletion instead of the start.
+- Updated `editable-block.js` to extract text using `.innerText` rather than `.textContent` so line breaks (`\n`) are preserved inside code layout structures without being stripped natively.
+- Standardized empty block deletion in `handleBackspace` by checking `trim().length > 0`, allowing backspace to cleanly remove trailing invisible layout artifacts and delete the block.
+- Updated all block components (`ParagraphBlock`, `TodoBlock`, `CodeBlock`, `HeadingBlock`, `ImageBlock`) to explicitly trigger block deletion if the user presses backspace inside a functionally empty block node.
+- Implemented "echo cancellation" via `lastEmittedTextRef` inside `useEditableBlock` to correctly initialize text in newly split blocks while preventing aggressive DOM overwriting that was causing the cursor to jump to the start of the line.
+- Updated block splitting logic to automatically mutate the `nextType` to a `paragraph` block when pressing Enter at the strict end of a block (except for code blocks, which utilize literal newlines).
+- Bound `Enter` key handlers natively to both the image edit input and the image frame container to effortlessly deploy paragraphs below image nodes.
+- Added a 600ms debounced `onChange` handler to the `ImageBlock` URL input for automatic background saving.
+- Implemented `Tab` key interception in `CodeBlock` to insert two spaces via `document.execCommand('insertText')`.
+- Reformatted `shareUrl` in `EditorShell` to `/share/${token}` and created a dedicated public viewing page at `frontend/app/share/[token]/page.js`.
+- Relaxed `EditorShell` initialization to allow loading documents using only a share token without an initial `documentId`.
+
+**What I asked for:**
+Improve the handling of 403 Forbidden errors when a user attempts to access a document they do not own. Show a beautifully styled "Access Denied" page instead of just an error banner or the editor content.
+
+**What it generated:**
+- Implemented a premium `ForbiddenErrorView` component in `frontend/features/editor/forbidden-error-view.js` with glassmorphism aesthetics and clear action buttons.
+- Updated `EditorShell.js` to detect 403 status codes from the API and render the `ForbiddenErrorView` statefully.
+- Centralized the forbidden view styles into `frontend/app/globals.css` to maintain project-wide styling consistency.
+
+**What was wrong or missing:**
+- The initial layout for the forbidden view used `styled-jsx`, which was inconsistent with the rest of the project's use of a global `globals.css` file for vanilla styling.
+
+**What I changed and why:**
+- I moved all component-specific styles to `globals.css` to ensure the project remains easy to maintain and follows the established "Vanilla CSS" rule. I also ensured the error page provides a clear path back to the user's dashboard.

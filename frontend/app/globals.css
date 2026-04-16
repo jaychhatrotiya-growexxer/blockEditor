@@ -2678,3 +2678,89 @@ input {
     padding: 0 0 2px;
   }
 }
+/* ==========================================================================
+   Forbidden Error View
+   ========================================================================== */
+
+.forbidden-view {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.forbidden-card {
+  width: min(100%, 480px);
+  background: var(--panel);
+  border: 1px solid rgba(233, 236, 239, 0.6);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 48px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.forbidden-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--danger-text),
+    transparent
+  );
+  opacity: 0.3;
+}
+
+.forbidden-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.forbidden-content h1 {
+  margin: 0 0 12px;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.forbidden-content p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 1.05rem;
+}
+
+.forbidden-actions {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 400px) {
+  .forbidden-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}

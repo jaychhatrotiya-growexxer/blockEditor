@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
 import { apiRequest } from "@/lib/api";
+import { ForbiddenErrorView } from "./forbidden-error-view";
 import { BlockRenderer } from "./blocks/block-renderer";
 import { SlashMenu, getFilteredCommands, COMMANDS } from "./slash/slash-menu";
 import {
@@ -501,6 +502,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
   const [documentTitle, setDocumentTitle] = useState("Untitled document");
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [docError, setDocError] = useState("");
+  const [isForbidden, setIsForbidden] = useState(false);
   const [saveState, setSaveState] = useState("idle");
   const [documentLoaded, setDocumentLoaded] = useState(false);
   const [showBlockToolbar, setShowBlockToolbar] = useState(false);
@@ -519,12 +521,12 @@ export function EditorShell({ documentId, shareToken = "" }) {
   const saveTimeoutRef = useRef(null);
   const isReadOnly = Boolean(shareToken);
   const shareUrl = useMemo(() => {
-    if (!documentId || !activeShareToken || typeof window === "undefined") {
+    if (!activeShareToken || typeof window === "undefined") {
       return "";
     }
 
-    return `${window.location.origin}/documents/${documentId}?share=${activeShareToken}`;
-  }, [activeShareToken, documentId]);
+    return `${window.location.origin}/share/${activeShareToken}`;
+  }, [activeShareToken]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -803,6 +805,12 @@ export function EditorShell({ documentId, shareToken = "" }) {
       const currentBlock = current[index];
       const beforeText = segments.before ?? "";
       const afterText = segments.after ?? "";
+      const isAtEnd = afterText.length === 0;
+
+      let nextType = currentBlock.type;
+      if (isAtEnd && currentBlock.type !== "code") {
+        nextType = "paragraph";
+      }
 
       const updatedBlock = {
         ...currentBlock,
@@ -811,11 +819,11 @@ export function EditorShell({ documentId, shareToken = "" }) {
 
       const nextBlock = {
         id: generateId(),
-        type: currentBlock.type,
+        type: nextType,
         content:
-          currentBlock.type === "todo"
-            ? { text: afterText, checked: currentBlock.content?.checked ?? false }
-            : currentBlock.type === "image"
+          nextType === "todo"
+            ? { text: afterText, checked: false }
+            : nextType === "image"
               ? {
                   url: "",
                   width: currentBlock.content?.width ?? 50,
@@ -846,10 +854,15 @@ export function EditorShell({ documentId, shareToken = "" }) {
       if (index === -1) return current;
 
       const currentBlock = current[index];
-      if (!isTextBlock(currentBlock)) return current;
+      if (!isTextBlock(currentBlock) && currentBlock.type !== "image") return current;
 
-      const currentText = currentBlock.content?.text || "";
-      if (currentText.length > 0) return current;
+      if (isTextBlock(currentBlock)) {
+        const currentText = currentBlock.content?.text || "";
+        if (currentText.length > 0 && currentText !== "\n") return current;
+      } else if (currentBlock.type === "image") {
+        const currentUrl = currentBlock.content?.url || "";
+        if (currentUrl.length > 0) return current;
+      }
 
       if (current.length === 1) {
         setFocusId(null);
@@ -1177,24 +1190,24 @@ export function EditorShell({ documentId, shareToken = "" }) {
   }
 
   useEffect(() => {
-    if (!documentId) { setIsLoadingDoc(false); return; }
+    if (!documentId && !shareToken) {
+      setIsLoadingDoc(false);
+      return;
+    }
 
     let cancelled = false;
 
     async function loadDocument() {
       setIsLoadingDoc(true);
       setDocError("");
+      setIsForbidden(false);
 
       try {
         const result = shareToken
           ? await apiRequest(`/documents/shared/${shareToken}`)
           : await authorizedRequest(`/documents/${documentId}`);
         if (!cancelled) {
-          if (shareToken && result.document?.id && result.document.id !== documentId) {
-            router.replace(
-              `/documents/${result.document.id}?share=${encodeURIComponent(shareToken)}`,
-            );
-          }
+          /* Redirect removed to allow /share/:token to persist */
           const loadedBlocks = normalizeBlocks(result.document?.blocks || []);
           setBlocks(loadedBlocks);
           setDocumentTitle(result.document?.title || "Untitled document");
@@ -1203,7 +1216,13 @@ export function EditorShell({ documentId, shareToken = "" }) {
           setSaveState(shareToken ? "shared" : "saved");
         }
       } catch (error) {
-        if (!cancelled) setDocError(error.message || "Unable to load document.");
+        if (!cancelled) {
+          if (error.status === 403) {
+            setIsForbidden(true);
+          } else {
+            setDocError(error.message || "Unable to load document.");
+          }
+        }
       } finally {
         if (!cancelled) setIsLoadingDoc(false);
       }
@@ -1249,7 +1268,7 @@ export function EditorShell({ documentId, shareToken = "" }) {
       element.focus();
       const range = document.createRange();
       range.selectNodeContents(element);
-      range.collapse(true);
+      range.collapse(false);
       const selection = window.getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
@@ -1283,6 +1302,10 @@ export function EditorShell({ documentId, shareToken = "" }) {
     }
 
     router.push(isReadOnly ? "/login" : "/dashboard");
+  }
+
+  if (isForbidden) {
+    return <ForbiddenErrorView />;
   }
 
   return (

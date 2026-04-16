@@ -5,11 +5,13 @@ import { useEffect, useRef } from "react";
 export function useEditableBlock(block, onChange) {
   const elementRef = useRef(null);
   const currentTextRef = useRef(block.content?.text || "");
+  const lastEmittedTextRef = useRef(null);
 
   function emitChange(nextText) {
     const previousText = block.content?.text || "";
 
     if (nextText !== previousText) {
+      lastEmittedTextRef.current = nextText;
       onChange?.({ text: nextText });
     }
   }
@@ -23,6 +25,10 @@ export function useEditableBlock(block, onChange) {
       return;
     }
 
+    if (lastEmittedTextRef.current === nextText) {
+      return;
+    }
+
     if (element.textContent !== nextText) {
       element.textContent = nextText;
     }
@@ -31,7 +37,7 @@ export function useEditableBlock(block, onChange) {
   }, [block.id, block.content?.text]);
 
   function handleInput(event) {
-    const nextText = event.currentTarget.textContent || "";
+    const nextText = event.currentTarget.innerText || "";
     currentTextRef.current = nextText;
     emitChange(nextText);
   }
