@@ -53,7 +53,7 @@ Implement a drag-and-drop feature for blocks and make sure the order is strictly
 
 ## 2026-04-15
 
-**Tool:** AI assistant (reconstructed from commit history; exact product name was not recorded in the repo)
+**Tool:** codex
 
 **What I asked for:**
 1. Fix the production session issue.
@@ -148,3 +148,18 @@ Implement skeleton views for the project, focusing on important UI elements like
 - Implemented "tag-stable" skeleton loaders for the landing page hero and navbar to ensure seamless hydration in Next.js.
 - Resolved a persistent hydration failure in the authentication forms (caused by browser extensions like LastPass) by implementing a client-side mount-check pattern.
 - Provided consistent skeleton loading states for the document dashboard (list view) and the primary document editor shell.
+
+### Technical Deep Dive & Manual Refinements
+
+#### Enter Mid-Block Splitting
+The AI initially provided a rudimentary array-splitting logic that failed to handle the cursor position and text selection correctly. This caused text after the cursor to be lost or placed into blank blocks without focus. I manually implemented a more robust split behavior in \`editor-shell.js\` that slices the text content based on the selection offset and uses a \`lastEmittedTextRef\` strategy in \`useEditableBlock\` to prevent the "echo effect" (cursor jumping to start) during hydration and re-renders.
+
+#### Order Index Strategy
+The initial AI suggestion for block ordering used simple integers. I consciously changed the schema to use \`Float\` (\`DoublePrecision\`) for the \`orderIndex\`. This decision provides a foundation for future fractional indexing (like Jira's Lexorank), allowing for block insertions without needing to re-index the entire document on every move.
+
+#### Cross-Account Security
+To protect against cross-account document access, I implemented a strict \`requireOwnedDocument\` middleware in the backend \`service.js \`. This ensures that every document ID passed to the API is first validated against the \`userId\` extracted from the authenticated JWT. If a user attempts to access or mutate a document they don't own, the system immediately rejects the request with a 403 Forbidden status, which the frontend then renders using a dedicated error view.
+
+#### Manual vs. AI Decisions
+I chose to manually refine several UI elements where the AI's generic suggestions lacked the necessary precision, such as adjusting the navbar link alignment for perfect vertical centering, adding tactile :active hover states to primary buttons, and fine-tuning placeholder text across the auth forms for a consistent professional tone. Additionally, I manually managed z-index layering for the floating editor toolbar to prevent border overlap and ensured all image alignment controls were perfectly proportional to the document canvas.
+
