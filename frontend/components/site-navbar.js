@@ -26,21 +26,28 @@ export function SiteNavbar() {
         </nav>
 
         <div className="site-navbar-actions">
-          {showGuestActions ? (
-            <Link href="/login" className="site-navbar-link-btn">
-              Login
-            </Link>
-          ) : null}
-          {showGuestActions ? (
-            <Link href="/register" className="site-navbar-cta">
-              Create account
-            </Link>
-          ) : null}
           {showDashboardAction ? (
             <Link href="/dashboard" className="site-navbar-cta">
               Open dashboard
             </Link>
-          ) : null}
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className={isBootstrapping ? "skeleton-btn--sm skeleton" : "site-navbar-link-btn"}
+                style={isBootstrapping ? { width: "60px" } : {}}
+              >
+                {isBootstrapping ? "" : "Login"}
+              </Link>
+              <Link
+                href="/register"
+                className={isBootstrapping ? "skeleton-btn--sm skeleton" : "site-navbar-cta"}
+                style={isBootstrapping ? { width: "120px" } : {}}
+              >
+                {isBootstrapping ? "" : "Create account"}
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

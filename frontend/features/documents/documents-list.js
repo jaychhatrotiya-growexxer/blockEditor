@@ -269,7 +269,11 @@ export function DocumentsList() {
       ) : null}
 
       {isLoading ? (
-        <p className="auth-loading">Loading documents...</p>
+        <div className="documents-list">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="skeleton skeleton-row" />
+          ))}
+        </div>
       ) : sortedDocuments.length === 0 ? (
         <div className="documents-empty">
           <p>No documents yet. Create your first one to get started.</p>

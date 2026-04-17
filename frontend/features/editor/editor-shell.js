@@ -1258,24 +1258,31 @@ export function EditorShell({ documentId, shareToken = "" }) {
     closeSlashMenu();
   }, [isReadOnly]);
 
+  const focusConfigRef = useRef(focusConfig);
   useEffect(() => {
-    if (isReadOnly) {
-      return;
-    }
+    focusConfigRef.current = focusConfig;
+  }, [focusConfig]);
 
-    if (!focusConfig) return;
-    const element = document.querySelector(`[data-block-id="${focusConfig.id}"]`);
+  useEffect(() => {
+    if (isReadOnly) return;
+
+    const config = focusConfigRef.current;
+    if (!config) return;
+
+    const element = document.querySelector(`[data-block-id="${config.id}"]`);
     if (element) {
       element.focus();
       const range = document.createRange();
       range.selectNodeContents(element);
-      range.collapse(focusConfig.focusAtStart);
+      range.collapse(config.focusAtStart);
       const selection = window.getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
     }
+    focusConfigRef.current = null;
     setFocusConfig(null);
-  }, [focusConfig, blocks, isReadOnly]);
+  }, [blocks, isReadOnly]);
+
 
   const saveLabel =
     isReadOnly ? "Read only"
@@ -1325,13 +1332,17 @@ export function EditorShell({ documentId, shareToken = "" }) {
             </svg>
           </button>
           <div className="editor-topbar-title-group">
-            <input
-              className="editor-topbar-title"
-              value={isLoadingDoc ? "Loading…" : documentTitle}
-              onChange={(event) => setDocumentTitle(event.target.value)}
-              placeholder="Untitled document"
-              readOnly={isReadOnly}
-            />
+            {isLoadingDoc ? (
+              <div className="skeleton skeleton-title" style={{ height: "2rem", width: "180px", margin: 0, borderRadius: "8px" }} />
+            ) : (
+              <input
+                className="editor-topbar-title"
+                value={documentTitle}
+                onChange={(event) => setDocumentTitle(event.target.value)}
+                placeholder="Untitled document"
+                readOnly={isReadOnly}
+              />
+            )}
             {isReadOnly ? (
               <p className="editor-topbar-meta">Shared view. Editing is disabled.</p>
             ) : null}
@@ -1466,38 +1477,52 @@ export function EditorShell({ documentId, shareToken = "" }) {
               strategy={verticalListSortingStrategy}
             >
               <div className="editor-blocks">
-                {!isReadOnly && !isEmptyDocument ? (
-                  <InsertBlockControl onInsert={() => insertParagraphAt(0)} />
-                ) : null}
-                {blocks.map((block, index) => (
-                  <div className="editor-block-stack" key={block.id}>
-                    <BlockRenderer
-                      block={block}
-                      readOnly={isReadOnly}
-                      isSelected={selectedBlockIds.includes(block.id)}
-                      showSelectionControls={isSelectionMode}
-                      onSelectChange={toggleBlockSelection}
-                      onChange={(nextContent) =>
-                        updateBlock(block.id, () => ({
-                          content: { ...block.content, ...nextContent },
-                        }))
-                      }
-                      onToggle={(checked) =>
-                        updateBlock(block.id, () => ({
-                          content: { ...block.content, checked },
-                        }))
-                      }
-                      onSplit={(segments) => splitBlock(block.id, segments)}
-                      onBackspace={() => handleBackspace(block.id)}
-                      onSlash={(event) => handleSlashKey(event, block.id)}
-                      onChangeType={changeBlockType}
-                      onDelete={deleteBlock}
-                    />
-                    {!isReadOnly ? (
-                      <InsertBlockControl onInsert={() => insertParagraphAt(index + 1)} />
-                    ) : null}
+                {isLoadingDoc ? (
+                  <div style={{ padding: "0 20px" }}>
+                    <div className="skeleton skeleton-title" style={{ width: "70%", marginBottom: "40px" }} />
+                    <div className="skeleton skeleton-block" />
+                    <div className="skeleton skeleton-block" style={{ width: "90%" }} />
+                    <div className="skeleton skeleton-block" style={{ width: "95%" }} />
+                    <div className="skeleton skeleton-block" style={{ width: "40%", marginTop: "30px" }} />
+                    <div className="skeleton skeleton-block" />
+                    <div className="skeleton skeleton-block" style={{ width: "85%" }} />
                   </div>
-                ))}
+                ) : (
+                  <>
+                    {!isReadOnly && !isEmptyDocument ? (
+                      <InsertBlockControl onInsert={() => insertParagraphAt(0)} />
+                    ) : null}
+                    {blocks.map((block, index) => (
+                      <div className="editor-block-stack" key={block.id}>
+                        <BlockRenderer
+                          block={block}
+                          readOnly={isReadOnly}
+                          isSelected={selectedBlockIds.includes(block.id)}
+                          showSelectionControls={isSelectionMode}
+                          onSelectChange={toggleBlockSelection}
+                          onChange={(nextContent) =>
+                            updateBlock(block.id, () => ({
+                              content: { ...block.content, ...nextContent },
+                            }))
+                          }
+                          onToggle={(checked) =>
+                            updateBlock(block.id, () => ({
+                              content: { ...block.content, checked },
+                            }))
+                          }
+                          onSplit={(segments) => splitBlock(block.id, segments)}
+                          onBackspace={() => handleBackspace(block.id)}
+                          onSlash={(event) => handleSlashKey(event, block.id)}
+                          onChangeType={changeBlockType}
+                          onDelete={deleteBlock}
+                        />
+                        {!isReadOnly ? (
+                          <InsertBlockControl onInsert={() => insertParagraphAt(index + 1)} />
+                        ) : null}
+                      </div>
+                    ))}
+                  </>
+                )}
                 {!isReadOnly && isEmptyDocument ? (
                   <div className="editor-empty-state">
                     <button

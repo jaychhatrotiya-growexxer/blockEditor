@@ -2,6 +2,12 @@
 
 BlockNote is a premium, browser-based block document editor designed for focus and productivity. Built with a modern tech stack, it provides a seamless writing experience with real-time saving, flexible block management, and easy document sharing.
 
+## 🔗 Project Links
+
+- **GitHub Repository**: [jaychhatrotiya-growexxer/blockEditor](https://github.com/jaychhatrotiya-growexxer/blockEditor)
+- **Live Backend API**: [blockeditor-3.onrender.com](https://blockeditor-3.onrender.com)
+- **Live Frontend App**: [block-editor-frontend.vercel.app](https://block-editor-frontend.vercel.app/)
+
 ## ✨ Features
 
 - **Block-Based Editing**: Intuitive interface with various block types (Paragraph, Heading 1/2, Todo, Code, Divider, Image).
@@ -11,14 +17,14 @@ BlockNote is a premium, browser-based block document editor designed for focus a
 - **Document Sharing**: Generate secure, read-only share links to collaborate or showcase your work.
 - **PDF Export**: Single-click PDF generation with professional, print-friendly styling.
 - **Auth & Sessions**: Secure JWT-based authentication with refresh token rotation.
-- **Forbidden Access Handling**: Beautiful, stateful "Access Denied" page for unauthorized document access.
+- **Premium UI**: Modern minimalist interface with glassmorphism aesthetics and perfect vertical centering across all auth pages.
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: Next.js (App Router)
-- **Styling**: Vanilla CSS (Global & Scoped)
-- **State Management**: React Hooks & Context API
+- **Framework**: Next.js 15 (App Router)
+- **Styling**: Vanilla CSS (Modern Flexbox + Grid layout)
+- **State Management**: React 19 Hooks & Context API
 - **Drag & Drop**: @dnd-kit
 
 ### Backend
@@ -28,11 +34,35 @@ BlockNote is a premium, browser-based block document editor designed for focus a
 - **Auth**: JWT (Access + Refresh Rotation), Bcrypt for hashing
 - **Validation**: Zod
 
-## 🚀 Getting Started
+## 🐳 Docker Support
+
+The project is fully Dockerized, allowing you to generate images and spin up the entire stack seamlessly.
+
+### Generating Images
+You can generate Docker images for the backend and frontend using the provided Dockerfiles:
+
+```bash
+# Build all images defined in docker-compose
+docker-compose build
+```
+
+### Running with Docker Compose
+To spin up the entire application (PostgreSQL, Backend, and Frontend):
+
+```bash
+docker-compose up -d
+```
+
+- **PostgreSQL**: Runs on port `5432`
+- **Backend API**: Runs on port `4000`
+- **Frontend App**: Runs on port `3000`
+
+## 🚀 Local Development (No Docker)
 
 ### Prerequisites
-- Node.js (v18+)
-- Docker (for PostgreSQL database)
+- Node.js (v20+)
+- npm (v10+)
+- A running PostgreSQL instance
 
 ### Installation
 
@@ -45,12 +75,7 @@ BlockNote is a premium, browser-based block document editor designed for focus a
    - Create a `.env` file in the root directory (refer to `.env.example`).
    - Create a `frontend/.env` file with `NEXT_PUBLIC_API_BASE_URL`.
 
-3. **Spin up the Database**:
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Initialize Database Schema**:
+3. **Initialize Database Schema**:
    ```bash
    npm run prisma:migrate --workspace backend
    ```
@@ -64,7 +89,7 @@ BlockNote is a premium, browser-based block document editor designed for focus a
 
 The project follows a clean, modular architecture:
 - **Frontend**: Organized by `features` (auth, documents, editor) with reusable `components` and `lib` for utility logic.
-- **Backend**: Structured into modules (`auth`, `documents`) following a `route -> controller -> service -> repository` pattern for clear separation of concerns.
+- **Backend**: Structured into modules following a `route -> controller -> service -> repository` pattern for clear separation of concerns.
 
 ## 🔒 Security
 

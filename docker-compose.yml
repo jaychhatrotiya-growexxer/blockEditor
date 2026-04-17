@@ -19,5 +19,42 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: blocknote-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/blocknote_dev?schema=public
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-local-access-secret-change-me}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-local-refresh-secret-change-me}
+      - ACCESS_TOKEN_EXPIRES_IN=15m
+      - REFRESH_TOKEN_EXPIRES_IN=7d
+      - REFRESH_COOKIE_NAME=blocknote_refresh_token
+      - SHARE_TOKEN_SECRET=${SHARE_TOKEN_SECRET:-local-share-secret-change-me}
+      - BCRYPT_SALT_ROUNDS=12
+      - CLIENT_URL=http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1
+    container_name: blocknote-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:

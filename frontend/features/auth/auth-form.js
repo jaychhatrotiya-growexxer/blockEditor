@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function AuthForm({
   mode,
@@ -13,9 +13,24 @@ export function AuthForm({
     email: "",
     password: "",
   });
+  const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const isRegister = mode === "register";
+
+  if (!isMounted) {
+    return (
+      <div className="auth-form-placeholder" style={{ minHeight: "260px" }}>
+        <div className="skeleton skeleton-block" style={{ height: "60px", marginBottom: "20px" }} />
+        <div className="skeleton skeleton-block" style={{ height: "60px", marginBottom: "30px" }} />
+        <div className="skeleton skeleton-btn" style={{ width: "100%", height: "48px" }} />
+      </div>
+    );
+  }
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -39,7 +54,7 @@ export function AuthForm({
 
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
-      <div className="auth-field">
+      <div className="auth-field" suppressHydrationWarning>
         <label htmlFor="email">Email</label>
         <input
           id="email"
@@ -54,7 +69,7 @@ export function AuthForm({
         />
       </div>
 
-      <div className="auth-field">
+      <div className="auth-field" suppressHydrationWarning>
         <label htmlFor="password">Password</label>
         <input
           id="password"

@@ -19,7 +19,10 @@ export function ProtectedPage({ children, variant = "dashboard" }) {
     return (
       <main className="auth-shell">
         <section className="dashboard-panel">
-          <p className="auth-loading">Restoring your session...</p>
+          <div className="skeleton skeleton-title" style={{ width: "40%", margin: "0 0 20px" }} />
+          <div className="skeleton skeleton-block" />
+          <div className="skeleton skeleton-block" style={{ width: "80%" }} />
+          <div className="skeleton skeleton-block" style={{ width: "60%" }} />
         </section>
       </main>
     );

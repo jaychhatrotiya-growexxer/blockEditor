@@ -118,3 +118,33 @@ Improve the handling of 403 Forbidden errors when a user attempts to access a do
 
 **What I changed and why:**
 - I moved all component-specific styles to `globals.css` to ensure the project remains easy to maintain and follows the established "Vanilla CSS" rule. I also ensured the error page provides a clear path back to the user's dashboard.
+
+## 2026-04-17
+
+**Tool:** Antigravity (Google DeepMind)
+
+**What I asked for:**
+Fix the login and register page styling so the cards are centered in the middle of the screen when rendered, rather than appearing at the bottom.
+
+**What it generated:**
+- Refactored the global layout system in `globals.css` by updating `.site-shell` to use `display: flex; flex-direction: column;`.
+- Updated `.site-main` to `flex: 1` and removed the fixed `padding-top: 104px`, allowing the main content to dynamically fill the space below the sticky navbar.
+- Modified `.auth-shell` to `flex: 1` and ensured it uses grid centering within the flexible parent container.
+- Verified the fix in the browser for both `/login` and `/register`, and confirmed no layout regressions on the landing page.
+
+**What I asked for:**
+Analyse the project and edit docker-compose file to generate images. Also, rewrite the README.md with comprehensive project details, deployment links, and Docker instructions.
+
+**What it generated:**
+- Created optimized `Dockerfile`s for both `backend` and `frontend` services.
+- Refactored `docker-compose.yml` to include the full application stack (PostgreSQL, Backend, Frontend) with integrated build logic and health checks.
+- Rewrote the main `README.md` to incorporate official project links (GitHub, Render, Vercel) and clear instructions for both Docker and local development.
+
+**What I asked for:**
+Implement skeleton views for the project, focusing on important UI elements like buttons to avoid blank states during initial loading.
+
+**What it generated:**
+- Developed a comprehensive skeleton system with a premium CSS shimmer effect in `globals.css`.
+- Implemented "tag-stable" skeleton loaders for the landing page hero and navbar to ensure seamless hydration in Next.js.
+- Resolved a persistent hydration failure in the authentication forms (caused by browser extensions like LastPass) by implementing a client-side mount-check pattern.
+- Provided consistent skeleton loading states for the document dashboard (list view) and the primary document editor shell.

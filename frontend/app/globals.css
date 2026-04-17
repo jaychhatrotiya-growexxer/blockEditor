@@ -83,10 +83,14 @@ input {
 
 .site-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .site-main {
-  padding-top: 104px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .site-navbar-shell {
@@ -509,7 +513,7 @@ input {
 
 .auth-shell,
 .dashboard-shell {
-  min-height: 100vh;
+  flex: 1;
   display: grid;
   place-items: center;
   padding: 32px 20px;
@@ -2678,9 +2682,423 @@ input {
     padding: 0 0 2px;
   }
 }
+
+/* ==========================================================================
+   Responsive – Tablet (≤ 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Landing */
+  .landing-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-feature-grid,
+  .landing-timeline {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .landing-share-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-preview-window {
+    min-height: 360px;
+  }
+
+  /* Editor */
+  .editor-canvas {
+    padding: 48px 16px 96px;
+  }
+
+  .editor-page-content {
+    padding: 32px 28px;
+  }
+
+  .editor-topbar-title {
+    font-size: 1.05rem;
+  }
+
+  /* Floating bar */
+  .editor-floating-bar-wrapper {
+    top: 76px;
+  }
+
+  .editor-floating-bar-btn {
+    padding: 6px 12px;
+    font-size: 0.88rem;
+  }
+
+  .editor-floating-bar-btn span {
+    display: none;
+  }
+
+  /* Block headings scale */
+  .block-heading-1 {
+    font-size: 2rem;
+  }
+
+  .block-heading-2 {
+    font-size: 1.6rem;
+  }
+
+  /* Document list */
+  .documents-header {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ==========================================================================
+   Responsive – Mobile (≤ 640px) – Enhanced
+   ========================================================================== */
+@media (max-width: 640px) {
+  /* ── Editor Topbar ── */
+  .editor-topbar {
+    padding: 0 10px;
+    height: 48px;
+    gap: 6px;
+  }
+
+  .editor-back-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .editor-topbar-title {
+    font-size: 0.95rem;
+    padding: 4px 8px;
+  }
+
+  .editor-topbar-right {
+    gap: 4px;
+  }
+
+  .editor-topbar-btn {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    gap: 4px;
+  }
+
+  .editor-topbar-btn span {
+    display: none;
+  }
+
+  .save-pill {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+
+  /* ── Editor Canvas ── */
+  .editor-canvas {
+    padding: 16px 8px 72px;
+  }
+
+  .editor-page-content {
+    padding: 16px 12px;
+    border-radius: 8px;
+  }
+
+  /* ── Floating Action Bar ── */
+  .editor-floating-bar-wrapper {
+    top: 56px;
+    width: calc(100vw - 16px);
+  }
+
+  .editor-floating-bar {
+    width: 100%;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 24px;
+  }
+
+  .editor-floating-bar-btn {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    border-radius: 20px;
+  }
+
+  .editor-floating-bar-btn span {
+    display: none;
+  }
+
+  .editor-floating-bar-icon {
+    font-size: 0.78rem;
+  }
+
+  /* ── Block Handle ── */
+  .block-handle {
+    width: 22px;
+    padding-top: 4px;
+  }
+
+  .block-handle-btn {
+    width: 22px;
+    height: 24px;
+    border-radius: 6px;
+  }
+
+  .editor-block-content {
+    padding: 4px 8px 4px 4px;
+  }
+
+  .editor-insert-control::before {
+    left: 22px;
+    right: 0;
+  }
+
+  /* ── Block Typography (Mobile scale) ── */
+  .block-heading-1 {
+    font-size: 1.65rem;
+    margin-top: 16px;
+  }
+
+  .block-heading-2 {
+    font-size: 1.35rem;
+    margin-top: 12px;
+  }
+
+  .block-paragraph {
+    font-size: 1rem;
+  }
+
+  .block-todo {
+    font-size: 1rem;
+    gap: 8px;
+  }
+
+  .block-code {
+    padding: 12px 14px;
+    font-size: 0.82rem;
+  }
+
+  /* ── Image Block Controls ── */
+  .block-image-controls {
+    width: 100%;
+  }
+
+  .block-image-preset-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .block-image-controls-close {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  /* ── Slash Menu (Mobile: bottom-anchored sheet) ── */
+  .slash-menu {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    top: auto;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+    max-height: 50vh;
+    overflow-y: auto;
+    border-radius: 16px;
+    box-shadow:
+      0 -8px 30px rgba(0, 0, 0, 0.12),
+      0 0 0 1px rgba(0, 0, 0, 0.04);
+    z-index: 100;
+  }
+
+  /* ── Block Handle Dropdown (Mobile) ── */
+  .block-handle-dropdown {
+    min-width: 200px;
+    max-width: calc(100vw - 48px);
+    border-radius: 12px;
+  }
+
+  .block-handle-item {
+    padding: 8px;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .block-handle-item-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 0.72rem;
+    border-radius: 7px;
+  }
+
+  /* ── Block Toolbar (Floating) ── */
+  .editor-block-toolbar {
+    min-width: 200px;
+    max-width: calc(100vw - 48px);
+    border-radius: 12px;
+  }
+
+  /* ── Share Popover ── */
+  .editor-share-popover {
+    position: fixed;
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+    border-radius: 16px;
+    z-index: 100;
+  }
+
+  .editor-share-actions {
+    flex-direction: column;
+  }
+
+  .editor-share-actions .editor-topbar-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .editor-share-actions .editor-topbar-btn span {
+    display: inline;
+  }
+
+  /* ── Forbidden View ── */
+  .forbidden-card {
+    padding: 32px 20px;
+    gap: 20px;
+  }
+
+  .forbidden-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+
+  .forbidden-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .forbidden-content p {
+    font-size: 0.95rem;
+  }
+
+  /* ── Auth / Dashboard ── */
+  .auth-card {
+    padding: 28px 20px;
+  }
+
+  .auth-form {
+    gap: 18px;
+  }
+
+  .auth-field input {
+    padding: 12px 14px;
+  }
+
+  .auth-submit,
+  .auth-secondary {
+    padding: 12px 18px;
+    font-size: 0.9rem;
+  }
+
+  .dashboard-panel {
+    padding: 24px 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .documents-card {
+    padding: 16px 12px;
+    border-radius: var(--radius-lg);
+  }
+
+  .documents-row {
+    padding: 16px;
+    gap: 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .documents-title-button {
+    font-size: 1rem;
+  }
+
+  .documents-actions .auth-secondary {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .documents-danger {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  /* ── Landing adjustments ── */
+  .landing-feature-grid,
+  .landing-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero-copy h1 {
+    font-size: 2rem;
+  }
+
+  .landing-hero-actions {
+    flex-direction: column;
+  }
+
+  .landing-hero-actions .auth-submit,
+  .landing-hero-actions .auth-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .site-navbar-cta,
+  .site-navbar-link-btn {
+    padding: 9px 14px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ==========================================================================
+   Responsive – Small Mobile (≤ 380px)
+   ========================================================================== */
+@media (max-width: 380px) {
+  .editor-topbar-title {
+    font-size: 0.85rem;
+  }
+
+  .editor-floating-bar-btn {
+    padding: 5px 8px;
+    font-size: 0.78rem;
+  }
+
+  .block-heading-1 {
+    font-size: 1.45rem;
+  }
+
+  .block-heading-2 {
+    font-size: 1.2rem;
+  }
+
+  .block-paragraph,
+  .block-todo {
+    font-size: 0.95rem;
+  }
+
+  .auth-card h1,
+  .dashboard-panel h1 {
+    font-size: 1.6rem;
+  }
+
+  .landing-hero-copy h1 {
+    font-size: 1.7rem;
+  }
+
+  .forbidden-content h1 {
+    font-size: 1.3rem;
+  }
+}
+
 /* ==========================================================================
    Forbidden Error View
    ========================================================================== */
+
 
 .forbidden-view {
   min-height: 100vh;
@@ -2763,4 +3181,79 @@ input {
     flex-direction: row;
     justify-content: center;
   }
+}
+
+/* ==========================================================================
+   Skeleton & Shimmer
+   ========================================================================== */
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #e9ecef;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-text {
+  height: 1em;
+  width: 100%;
+  margin-bottom: 0.5em;
+}
+
+.skeleton-title {
+  height: 2.5rem;
+  width: 60%;
+  margin-bottom: 1.5rem;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-block {
+  height: 1.2rem;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.skeleton-row {
+  height: 80px;
+  width: 100%;
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton-btn {
+  height: 48px;
+  width: 140px;
+  border-radius: var(--radius-md);
+  display: inline-block;
+}
+
+.skeleton-btn--sm {
+  height: 38px;
+  width: 100px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-btn--icon {
+  height: 38px;
+  width: 38px;
+  border-radius: 50%;
 }

@@ -22,21 +22,28 @@ export default function HomePage() {
             </p>
 
             <div className="landing-hero-actions">
-              {showGuestActions ? (
-                <>
-                  <Link href="/register" className="auth-submit">
-                    Create account
-                  </Link>
-                  <Link href="/login" className="auth-secondary">
-                    Sign in
-                  </Link>
-                </>
-              ) : null}
               {showDashboardAction ? (
                 <Link href="/dashboard" className="auth-submit">
                   Open dashboard
                 </Link>
-              ) : null}
+              ) : (
+                <>
+                  <Link
+                    href="/register"
+                    className={`auth-submit ${isBootstrapping ? "skeleton" : ""}`}
+                    style={isBootstrapping ? { minWidth: "160px", color: "transparent" } : {}}
+                  >
+                    {isBootstrapping ? "Creating account" : "Create account"}
+                  </Link>
+                  <Link
+                    href="/login"
+                    className={`auth-secondary ${isBootstrapping ? "skeleton" : ""}`}
+                    style={isBootstrapping ? { minWidth: "100px", color: "transparent" } : {}}
+                  >
+                    {isBootstrapping ? "Signing in" : "Sign in"}
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="landing-metrics">
